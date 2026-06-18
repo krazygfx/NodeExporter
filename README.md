@@ -3,11 +3,15 @@
 [![Blender Version](https://img.shields.io/badge/Blender-3.6%20%7C%204.x%20%7C%205.x-orange.svg)](https://www.blender.org)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+<img width="1920" height="1080" alt="NODE EXPORTER PROJECT 1" src="https://github.com/user-attachments/assets/5d3afe25-ee88-4840-9e02-6486bae9fb72" />
+
 NodeExporter es un complemento (add-on) para Blender diseñado para extraer redes de nodos (Geometry Nodes y Shader Materials) y compilarlas en un visor web interactivo e independiente basado en HTML5, CSS3 y JavaScript
 
 El propósito de esta herramienta es facilitar la visualización, documentación y exportación gráfica de sistemas de nodos complejos fuera del entorno de Blender, manteniendo una alta fidelidad visual y operativa.
 
 ## Características Principales
+
+<img width="1920" height="1080" alt="NODE EXPORTER PROJECT 2" src="https://github.com/user-attachments/assets/42a82eb9-9f59-48a2-a1e8-35a451cd7f7d" />
 
 * **Visor Web Independiente:** Genera un archivo HTML autónomo que no requiere de servidores locales ni dependencias externas para su ejecución.
 * **Exportación de Imágenes en Alta Resolución:** Permite la exportación del lienzo web a formato PNG (escala 2x), con soporte para fondos sólidos o canal alfa (transparencia) para su integración en software de composición gráfica y edición.
