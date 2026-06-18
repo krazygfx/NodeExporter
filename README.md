@@ -35,6 +35,9 @@ El propósito de esta herramienta es facilitar la visualización, documentación
 4. Seleccione el directorio de destino en su sistema local.
 5. Presione **Exportar y Abrir Visor**. El sistema generará el archivo JSON de datos, compilará el archivo HTML y lo ejecutará en su navegador web predeterminado.
 
+<img width="402" height="513" alt="image" src="https://github.com/user-attachments/assets/010d487a-a8b3-4f05-8bae-f5865df03c02" />
+<img width="402" height="508" alt="image" src="https://github.com/user-attachments/assets/5e4d6b80-77ab-4088-9857-16472999aa2f" />
+
 ## Video de muestra
 
 https://github.com/user-attachments/assets/0731de55-1a80-49c8-b755-2b51091aa429
