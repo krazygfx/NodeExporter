@@ -1,10 +1,10 @@
 bl_info = {
     "name": "NodeExporter",
     "author": "KrazyGFX",
-    "version": (1, 9),
-    "blender": (3, 6, 0),
+    "version": (1, 0),
+    "blender": (4, 2, 0),
     "location": "Node Editor > N-Panel > NodeExporter",
-    "description": "Exporta Geometry y Shader Nodes a JSON y auto-ejecuta el visor HTML",
+    "description": "Export Geometry and Shader Nodes to JSON and auto-run the HTML viewer",
     "category": "Node",
 }
 
@@ -17,40 +17,40 @@ import shutil
 def get_all_trees(self, context):
     items = []
     for ng in bpy.data.node_groups:
-        items.append(("GROUP__" + ng.name, "Group: " + ng.name, "Geometry o Shader Group", 'NODETREE', len(items)))
+        items.append(("GROUP__" + ng.name, "Group: " + ng.name, "Geometry or Shader Group", 'NODETREE', len(items)))
     
     for mat in bpy.data.materials:
         if mat.use_nodes and mat.node_tree:
             items.append(("MAT__" + mat.name, "Mat: " + mat.name, "Shader Material", 'MATERIAL', len(items)))
             
     if not items:
-        items.append(("NONE", "Ninguno", "", 'ERROR', 0))
+        items.append(("NONE", "None", "", 'ERROR', 0))
         
     return items
 
 class KRAZY_PG_Settings(bpy.types.PropertyGroup):
     export_path: bpy.props.StringProperty(
-        name="Carpeta Export",
-        description="Carpeta destino para guardar la captura",
-        default="C:\\CapturasBlender",
+        name="Export directory",
+        description="Destination Folder to save capture",
+        default="C:\\NodeExporter",
         subtype='DIR_PATH'
     )
     selected_tree: bpy.props.EnumProperty(
-        name="Árbol",
-        description="Selecciona el Geometry Node o Material (Shader) a exportar",
+        name="Tree",
+        description="Select Geometry or Shader Node to export",
         items=get_all_trees
     )
 
 class KRAZY_OT_ExportNodes(bpy.types.Operator):
     bl_idname = "node.krazy_export"
-    bl_label = "Exportar y Abrir Visor"
-    bl_description = "Exporta a JSON y abre automáticamente el HTML"
+    bl_label = "Export and Open Viewer"
+    bl_description = "Export to JSON and open viewer HTML"
 
     def execute(self, context):
         settings = context.scene.krazy_settings
         tree_val = settings.selected_tree
         tree = None
-        proyecto_nombre = "Proyecto"
+        proyecto_nombre = "project"
 
         if tree_val.startswith("GROUP__"):
             name = tree_val.replace("GROUP__", "", 1)
@@ -64,7 +64,7 @@ class KRAZY_OT_ExportNodes(bpy.types.Operator):
                 proyecto_nombre = name
                 
         if not tree:
-            self.report({'WARNING'}, "¡Selecciona un árbol de nodos válido primero!")
+            self.report({'WARNING'}, "First choose a valid node tree!")
             return {'CANCELLED'}
 
         carpeta_destino = bpy.path.abspath(settings.export_path)
@@ -72,7 +72,7 @@ class KRAZY_OT_ExportNodes(bpy.types.Operator):
         if not os.path.exists(carpeta_destino):
             try: os.makedirs(carpeta_destino)
             except: 
-                self.report({'ERROR'}, "Ruta de carpeta inválida.")
+                self.report({'ERROR'}, "Invalid export directory.")
                 return {'CANCELLED'}
 
         datos_exportados = {"proyecto": proyecto_nombre, "nodos": [], "cables": []}
@@ -104,7 +104,7 @@ class KRAZY_OT_ExportNodes(bpy.types.Operator):
 
                 puertos_entrada.append({
                     "nombre": e.name, "tipo_dato": e.type, "conectado": e.is_linked, "valor": valor,
-                    "oculto": getattr(e, 'hide', False) # INYECCIÓN: Lee puertos ocultos nativos
+                    "oculto": getattr(e, 'hide', False)
                 })
 
             puertos_salida = [
@@ -174,16 +174,16 @@ class KRAZY_OT_ExportNodes(bpy.types.Operator):
         if os.path.exists(html_origen):
             shutil.copy(html_origen, ruta_html_destino)
             webbrowser.open('file://' + ruta_html_destino.replace('\\', '/'))
-            self.report({'INFO'}, "¡Exportado y Visor Abierto!")
+            self.report({'INFO'}, "Exported and Viewer Opened!")
         else:
-            self.report({'ERROR'}, "Instalación corrupta: Falta el archivo visor.html en el Add-on.")
+            self.report({'ERROR'}, "Corrupt installation: visor.html is missing from the Add-on.")
 
         return {'FINISHED'}
 
 class KRAZY_OT_GetActiveTree(bpy.types.Operator):
     bl_idname = "node.krazy_get_active"
-    bl_label = "Usar Nodo en Pantalla"
-    bl_description = "Selecciona automáticamente el árbol de nodos activo"
+    bl_label = "Use Active Node Tree"
+    bl_description = "Automatically selects the active node tree"
 
     def execute(self, context):
         area = next((a for a in context.screen.areas if a.type == 'NODE_EDITOR'), None)
@@ -191,15 +191,15 @@ class KRAZY_OT_GetActiveTree(bpy.types.Operator):
             space = area.spaces.active
             if hasattr(space, 'id') and isinstance(space.id, bpy.types.Material):
                 context.scene.krazy_settings.selected_tree = "MAT__" + space.id.name
-                self.report({'INFO'}, f"Material '{space.id.name}' cargado.")
+                self.report({'INFO'}, f"Material '{space.id.name}' loaded.")
                 return {'FINISHED'}
             
             if space.edit_tree and space.edit_tree.name in bpy.data.node_groups:
                 context.scene.krazy_settings.selected_tree = "GROUP__" + space.edit_tree.name
-                self.report({'INFO'}, f"Grupo '{space.edit_tree.name}' cargado.")
+                self.report({'INFO'}, f"Group '{space.edit_tree.name}' loaded.")
                 return {'FINISHED'}
 
-        self.report({'WARNING'}, "Abre un editor de nodos con un Material o Geometry Node activo.")
+        self.report({'WARNING'}, "Open a Node Editor with an active Material or Geometry Node tree.")
         return {'FINISHED'}
 
 class KRAZY_PT_Panel(bpy.types.Panel):
@@ -217,7 +217,7 @@ class KRAZY_PT_Panel(bpy.types.Panel):
         layout.prop(settings, "selected_tree", text="")
         
         layout.separator()
-        layout.label(text="Destino del JSON y Captura:")
+        layout.label(text="Export Destination:")
         layout.prop(settings, "export_path", text="")
         
         layout.separator()

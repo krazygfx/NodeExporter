@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>NodeExporter Viewer</title>
@@ -8,7 +8,6 @@
     <style>
         body { background-color: #121212; color: #eeeeee; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; overflow: hidden; }
         
-        /* INTERFAZ GLASSMORPHISM (SOLO UI EXTERNA) CON ACENTO AZUL */
         #ui-bar { 
             position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; display: flex; align-items: center; gap: 12px; padding: 14px 24px;
             background: rgba(22, 22, 22, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -38,7 +37,6 @@
         #cables-svg   { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
         #nodes-layer  { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 
-        /* ESTILO CLÁSICO PARA LOS NODOS */
         .node {
             position: absolute; background-color: #333333; border-radius: 6px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid #111; 
@@ -78,7 +76,6 @@
         .node-panel-header.closed .arrow { transform: rotate(-90deg); }
         .node-panel-content { display: block; padding-top: 4px; }
 
-        /* LA "X" INVISIBLE POR DEFECTO PARA TODOS LOS NODOS */
         .delete-socket-btn { display: none; cursor: pointer; color: #ff5555; margin: 0 6px; transition: transform 0.1s; font-size: 11px; font-weight: bold;}
         .delete-socket-btn:hover { transform: scale(1.3); }
         .socket-row:hover .delete-socket-btn { display: inline-block; }
@@ -89,7 +86,6 @@
         .socket-slider.blue { background-color: #416086; }
         .socket-checkbox { width: 10px; height: 10px; background-color: #444; border: 1px solid #222; border-radius: 2px; margin-right: 5px; display: flex; align-items: center; justify-content: center; font-size: 9px;}
 
-        /* UI Glassmorphism Panel Lateral */
         #bg-panel { 
             position: fixed; top: 75px; right: -320px; width: 280px; max-height: 80vh; overflow-y: auto; z-index: 1000; transition: right 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: 16px 0 0 16px;
             background: rgba(26, 26, 26, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
@@ -104,7 +100,6 @@
         
         #selection-box { position: fixed; border: 1px dashed rgba(255,255,255,0.8); background-color: rgba(33, 150, 243, 0.1); z-index: 9999; display: none; pointer-events: none; border-radius:4px;}
         
-        /* Menú Contextual (UI Glassmorphism) */
         #context-menu { 
             display: none; position: fixed; z-index: 10000; border-radius: 10px; padding: 8px; min-width: 190px;
             background: rgba(30, 30, 30, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
@@ -128,51 +123,51 @@
     <div id="ui-bar">
         <label for="jsonFileInput" class="btn-glass">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            Abrir JSON
+            Open JSON
         </label>
         <input type="file" id="jsonFileInput" accept=".json">
 
         <button onclick="centrarVista()" class="btn-glass">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19 12h3M2 12h3M12 2v3M12 19v3"></path></svg>
-            Centrar Vista
+            Center View
         </button>
 
         <button onclick="toggleBgPanel()" class="btn-glass">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>
-            Ajustes
+            Settings
         </button>
 
         <div style="margin-left: auto; display: flex; gap: 12px;">
             <button onclick="exportarImagen(true)" class="btn-glass" id="btnExportarTransp" style="border-color: rgba(0, 214, 163, 0.4); color: #00D6A3;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                PNG Transparente
+                Transparent PNG
             </button>
 
             <button onclick="exportarImagen(false)" class="btn-glass btn-export" id="btnExportarMain">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                <span id="export-text">Exportar PNG HD</span>
+                <span id="export-text">Export HD PNG</span>
             </button>
         </div>
     </div>
 
     <div id="bg-panel">
-        <h4 style="margin:0 0 10px 0; color:#fff; font-weight: 600;">Fondo del Lienzo</h4>
-        <div class="bg-setting-row"><label>Tipo Fondo</label><select id="bg-type" onchange="updateBackground()"><option value="solid">Color Liso</option><option value="gradient">Degradado</option></select></div>
-        <div class="bg-setting-row"><label>Color Base</label><input type="color" id="bg-col1" value="#121212" oninput="updateBackground()"></div>
-        <div class="bg-setting-row" id="row-bg-col2" style="display:none;"><label>Color Sec.</label><input type="color" id="bg-col2" value="#2a2a2a" oninput="updateBackground()"></div>
-        <div class="bg-setting-row" id="row-bg-angle" style="display:none;"><label>Ángulo</label><input type="number" id="bg-angle" value="135" min="0" max="360" oninput="updateBackground()"></div>
+        <h4 style="margin:0 0 10px 0; color:#fff; font-weight: 600;">Canvas Background</h4>
+        <div class="bg-setting-row"><label>Bg Type</label><select id="bg-type" onchange="updateBackground()"><option value="solid">Solid Color</option><option value="gradient">Gradient</option></select></div>
+        <div class="bg-setting-row"><label>Base Color</label><input type="color" id="bg-col1" value="#121212" oninput="updateBackground()"></div>
+        <div class="bg-setting-row" id="row-bg-col2" style="display:none;"><label>Sec Color</label><input type="color" id="bg-col2" value="#2a2a2a" oninput="updateBackground()"></div>
+        <div class="bg-setting-row" id="row-bg-angle" style="display:none;"><label>Angle</label><input type="number" id="bg-angle" value="135" min="0" max="360" oninput="updateBackground()"></div>
         <hr style="width:100%; border:0; border-top:1px solid rgba(255,255,255,0.05); margin: 5px 0;">
-        <div class="bg-setting-row"><label>Color Puntos</label><input type="color" id="dot-col" value="#333333" oninput="updateBackground()"></div>
-        <div class="bg-setting-row"><label>Tamaño</label><input type="range" id="dot-size" min="0" max="4" step="0.5" value="1.5" oninput="updateBackground()"></div>
-        <div class="bg-setting-row"><label>Densidad</label><input type="range" id="dot-space" min="10" max="80" step="2" value="20" oninput="updateBackground()"></div>
+        <div class="bg-setting-row"><label>Dot Color</label><input type="color" id="dot-col" value="#333333" oninput="updateBackground()"></div>
+        <div class="bg-setting-row"><label>Dot Size</label><input type="range" id="dot-size" min="0" max="4" step="0.5" value="1.5" oninput="updateBackground()"></div>
+        <div class="bg-setting-row"><label>Density</label><input type="range" id="dot-space" min="10" max="80" step="2" value="20" oninput="updateBackground()"></div>
         
         <hr style="width:100%; border:0; border-top:1px solid rgba(255,255,255,0.05); margin: 5px 0;">
-        <h4 style="margin:0 0 5px 0; color:#fff; font-weight: 600;">Estilos de Trazo</h4>
-        <div class="bg-setting-row"><label>Grosor Nodos</label><input type="range" id="node-bw" min="0" max="5" step="1" value="1" oninput="updateStyles()"></div>
-        <div class="bg-setting-row"><label>Borde Nodos</label><select id="node-bs" onchange="updateStyles()"><option value="solid">Sólido</option><option value="dashed">Guiones</option><option value="dotted">Puntos</option></select></div>
-        <div class="bg-setting-row"><label>Grosor Marcos</label><input type="range" id="frame-bw" min="0" max="10" step="1" value="2" oninput="updateStyles()"></div>
-        <div class="bg-setting-row"><label>Borde Marcos</label><select id="frame-bs" onchange="updateStyles()"><option value="dashed">Guiones</option><option value="solid">Sólido</option><option value="dotted">Puntos</option></select></div>
-        <div class="bg-setting-row"><label>Grosor Cables</label><input type="range" id="cable-w" min="1" max="10" step="1" value="3" oninput="updateStyles()"></div>
+        <h4 style="margin:0 0 5px 0; color:#fff; font-weight: 600;">Stroke Styles</h4>
+        <div class="bg-setting-row"><label>Node Thickness</label><input type="range" id="node-bw" min="0" max="5" step="1" value="1" oninput="updateStyles()"></div>
+        <div class="bg-setting-row"><label>Node Border</label><select id="node-bs" onchange="updateStyles()"><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select></div>
+        <div class="bg-setting-row"><label>Frame Thickness</label><input type="range" id="frame-bw" min="0" max="10" step="1" value="2" oninput="updateStyles()"></div>
+        <div class="bg-setting-row"><label>Frame Border</label><select id="frame-bs" onchange="updateStyles()"><option value="dashed">Dashed</option><option value="solid">Solid</option><option value="dotted">Dotted</option></select></div>
+        <div class="bg-setting-row"><label>Cable Thickness</label><input type="range" id="cable-w" min="1" max="10" step="1" value="3" oninput="updateStyles()"></div>
     </div>
 
     <div id="viewport">
@@ -188,31 +183,31 @@
     <div id="context-menu">
         <div class="ctx-btn" id="ctx-desconectar" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h2a5 5 0 0 1 0 10h-2m-6 0H7A5 5 0 0 1 7 7h2"></path><line x1="8" y1="12" x2="16" y2="12" stroke-dasharray="2 2"></line></svg>
-            Desconectar Cable
+            Disconnect Cable
         </div>
         <div class="ctx-btn" id="ctx-restaurar" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            Restaurar Puertos
+            Restore Sockets
         </div>
         <div class="ctx-btn" id="ctx-crear-marco">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-            Crear Marco Nuevo
+            Create New Frame
         </div>
         <div class="ctx-btn" id="ctx-asignar-marco" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Añadir a Marco
+            Add to Frame
         </div>
         <div class="ctx-btn" id="ctx-quitar-marco" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Quitar de Marco
+            Remove from Frame
         </div>
         <div class="ctx-btn" id="ctx-renombrar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-            Renombrar
+            Rename
         </div>
         <div class="ctx-btn danger" id="ctx-eliminar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-            Eliminar Nodo
+            Delete Node
         </div>
     </div>
 
@@ -520,7 +515,7 @@
                                 const color = COLOR_MAP[input.tipo_dato] || "#aaa";
                                 const isFieldIn = input.tipo_dato === 'BOOLEAN' || (input.nombre || '') === 'Selection';
                                 const diamondClassIn = isFieldIn ? 'socket-diamond' : '';
-                                const btnIn = `<div class="delete-socket-btn" onclick="borrarPuerto('${nodo.id_interno}', '${input.nombre}', 'in')" title="Ocultar">✖</div>`;
+                                const btnIn = `<div class="delete-socket-btn" onclick="borrarPuerto('${nodo.id_interno}', '${input.nombre}', 'in')" title="Hide">✖</div>`;
                                 let labelHtml = `<span class="socket-label">${input.nombre}</span>`;
                                 
                                 if (!input.conectado && input.valor !== undefined && input.valor !== null) {
@@ -548,7 +543,7 @@
                                 const color = COLOR_MAP[output.tipo_dato] || "#aaa";
                                 const isFieldOut = output.tipo_dato === 'BOOLEAN' || ((output.nombre || '') === 'Result' && nType.includes('Compare'));
                                 const diamondClassOut = isFieldOut ? 'socket-diamond' : ''; 
-                                const btnOut = `<div class="delete-socket-btn" onclick="borrarPuerto('${nodo.id_interno}', '${output.nombre}', 'out')" title="Ocultar">✖</div>`;
+                                const btnOut = `<div class="delete-socket-btn" onclick="borrarPuerto('${nodo.id_interno}', '${output.nombre}', 'out')" title="Hide">✖</div>`;
 
                                 rowHtml += `<div class="socket-output" style="align-items: flex-start; padding-top:2px;">${btnOut}<span class="socket-label">${output.nombre}</span><div class="socket-dot ${diamondClassOut}" id="socket_out_${nodo.id_interno}_${output.nombre}" data-node="${nodo.id_interno}" data-port="${output.nombre}" data-type="out" style="background-color: ${color}; top:6px;" data-dashed="${isFieldOut}"></div></div>`;
                             } else rowHtml += `<div class="socket-output"></div>`;
@@ -1018,10 +1013,10 @@
 
         document.getElementById('ctx-asignar-marco').addEventListener('click', () => {
             let frameEl = ctxTarget.closest('.node-frame');
-            if (!frameEl) return alert("Haz clic derecho SOBRE el marco destino.");
+            if (!frameEl) return alert("Right click ON the target frame.");
             let frameId = frameEl.id.replace('node_', '');
             let selected = Array.from(document.querySelectorAll('.node.selected:not(.node-frame)')).map(el => el.id.replace('node_', ''));
-            if(selected.length === 0) return alert("Selecciona primero los nodos celestes que deseas añadir, luego clic derecho en el marco.");
+            if(selected.length === 0) return alert("Select nodes first by dragging the left mouse button, then right click on the frame.");
             guardarPosiciones();
             selected.forEach(id => {
                 let n = currentDataGlobal.nodos.find(x => x.id_interno === id);
@@ -1051,7 +1046,7 @@
             if (nEl) {
                 const nodo = currentDataGlobal.nodos.find(n => n.id_interno === nEl.id.replace('node_', ''));
                 if (nodo) {
-                    const nuevo = prompt("Nuevo nombre:", nodo.etiqueta.replace(/\.\d+$/, ''));
+                    const nuevo = prompt("New name:", nodo.etiqueta.replace(/\.\d+$/, ''));
                     if (nuevo) { guardarPosiciones(); nodo.etiqueta = nuevo; renderEngine(currentDataGlobal, false); }
                 }
             }
@@ -1061,10 +1056,10 @@
             if (!currentDataGlobal) return;
             guardarPosiciones();
             const selIds = Array.from(document.querySelectorAll('.node.selected')).map(el => el.id.replace('node_', ''));
-            if (selIds.length === 0) return alert("Selecciona nodos con Click Izquierdo + Arrastrar antes de crear un marco.");
+            if (selIds.length === 0) return alert("Select nodes first by dragging the left mouse button before creating a frame.");
             const newFrameId = "Frame_" + Date.now();
             currentDataGlobal.nodos.push({
-                id_interno: newFrameId, tipo: "NodeFrame", etiqueta: "Nuevo Marco",
+                id_interno: newFrameId, tipo: "NodeFrame", etiqueta: "New Frame",
                 posicion: { x: 0, y: 0 }, dimensiones: { ancho: 200, alto: 200 },
                 es_marco: true, color_fondo: null, puertos_entrada: [], puertos_salida: []
             });
@@ -1198,10 +1193,10 @@
             const btnTransp = document.getElementById('btnExportarTransp');
             
             if(transparente && btnTransp) {
-                btnTransp.innerHTML = '⏳ Exportando...';
+                btnTransp.innerHTML = 'Exporting...';
                 btnTransp.style.background = "rgba(0, 214, 163, 0.2)";
             } else if(!transparente && btnOriginal) {
-                btnOriginal.querySelector('#export-text').innerText = "⏳ Exportando...";
+                btnOriginal.querySelector('#export-text').innerText = "⏳ Exporting...";
                 btnOriginal.style.background = "rgba(100, 181, 246, 0.9)";
             }
             
@@ -1213,7 +1208,6 @@
             const bgLayer = document.getElementById('bg-svg-layer');
             const originalBgDisplay = bgLayer.style.display;
             
-            // LA MAGIA: Apaga el fondo antes de la captura si es PNG Transparente
             if (transparente) {
                 bgLayer.style.display = 'none'; 
             }
@@ -1233,10 +1227,10 @@
                 enlaceDescarga.click();
                 
                 if(transparente && btnTransp) {
-                    btnTransp.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> PNG Transparente';
+                    btnTransp.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Transparent PNG';
                     btnTransp.style.background = "rgba(255, 255, 255, 0.05)";
                 } else if(!transparente && btnOriginal) {
-                    btnOriginal.querySelector('#export-text').innerText = "Exportar PNG HD";
+                    btnOriginal.querySelector('#export-text').innerText = "Export HD PNG";
                     btnOriginal.style.background = "rgba(33, 150, 243, 0.85)";
                 }
             }).catch(err => {
@@ -1245,17 +1239,17 @@
                 if (transparente) bgLayer.style.display = originalBgDisplay;
                 
                 if(transparente && btnTransp) {
-                    btnTransp.innerHTML = '❌ Error';
+                    btnTransp.innerHTML = 'Error';
                     btnTransp.style.background = "#ff6b6b";
                     setTimeout(() => { 
-                        btnTransp.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> PNG Transparente';
+                        btnTransp.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Transparent PNG';
                         btnTransp.style.background = "rgba(255, 255, 255, 0.05)";
                     }, 3000);
                 } else if(!transparente && btnOriginal) {
-                    btnOriginal.querySelector('#export-text').innerText = "❌ Error";
+                    btnOriginal.querySelector('#export-text').innerText = "Error";
                     btnOriginal.style.background = "#ff6b6b";
                     setTimeout(() => { 
-                        btnOriginal.querySelector('#export-text').innerText = "Exportar PNG HD"; 
+                        btnOriginal.querySelector('#export-text').innerText = "Export HD PNG"; 
                         btnOriginal.style.background = "rgba(33, 150, 243, 0.85)"; 
                     }, 3000);
                 }
