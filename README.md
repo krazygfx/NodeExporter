@@ -1,52 +1,48 @@
 # NodeExporter for Blender
 
-[![Blender Version](https://img.shields.io/badge/Blender-3.6%20%7C%204.x%20%7C%205.x-orange.svg)](https://www.blender.org)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Blender Version](https://img.shields.io/badge/Blender-4.2+-orange.svg)](https://www.blender.org)
+[![License](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](LICENSE)
 
 <img width="1920" height="1080" alt="NODE EXPORTER PROJECT 1" src="https://github.com/user-attachments/assets/5d3afe25-ee88-4840-9e02-6486bae9fb72" />
 
-NodeExporter es un complemento (add-on) para Blender diseñado para extraer redes de nodos (Geometry Nodes y Shader Materials) y compilarlas en un visor web interactivo e independiente basado en HTML5, CSS3 y JavaScript
+NodeExporter is a Blender add-on designed to extract node networks (Geometry Nodes and Shader Materials) and compile them into an interactive and independent web viewer based on HTML5, CSS3, and JavaScript.
 
-El propósito de esta herramienta es facilitar la visualización, documentación y exportación gráfica de sistemas de nodos complejos fuera del entorno de Blender, manteniendo una alta fidelidad visual y operativa.
+The purpose of this tool is to facilitate the visualization, documentation, and graphical export of complex node systems outside the Blender environment, maintaining high visual and operational fidelity.
 
-## Características Principales
+## Key Features
 
-<img width="1920" height="1080" alt="NODE EXPORTER PROJECT 2" src="https://github.com/user-attachments/assets/42a82eb9-9f59-48a2-a1e8-35a451cd7f7d" />
+* **Standalone Web Viewer:** Generates a standalone HTML file that does not require local servers or external dependencies to run.
+* **High-Resolution Image Export:** Enables exporting the web canvas to PNG format (2x scale), supporting solid backgrounds or alpha channel (transparency) for integration into graphic composition and editing software.
+* **Dynamic Interface and Canvas:** Implements an infinite and resizable workspace, with an overlay interface that allows real-time customization of the background, grid density, and connection routing (thickness and line style).
+* **Native State Synchronization:** Detects and reproduces the state of elements from Blender, supporting minimized (collapsed) nodes and individual socket hiding, automatically readjusting link topology.
+* **Interactive Operations:** Allows network modification directly in the browser, including block repositioning, link disconnection, and frame management via a context menu.
 
-* **Visor Web Independiente:** Genera un archivo HTML autónomo que no requiere de servidores locales ni dependencias externas para su ejecución.
-* **Exportación de Imágenes en Alta Resolución:** Permite la exportación del lienzo web a formato PNG (escala 2x), con soporte para fondos sólidos o canal alfa (transparencia) para su integración en software de composición gráfica y edición.
-* **Interfaz y Lienzo Dinámico:** Implementa un entorno de trabajo infinito y redimensionable, con una interfaz superpuesta que permite la personalización en tiempo real del fondo, la densidad de la cuadrícula y el trazado de las conexiones (grosor y estilo de línea).
-* **Sincronización de Estados Nativos:** Detecta y reproduce el estado de los elementos provenientes de Blender, soportando nodos minimizados (colapsados) y el ocultamiento de puertos individuales, reajustando la topología de los enlaces automáticamente.
-* **Operaciones Interactivas:** Permite la modificación de la red directamente en el navegador, incluyendo el reposicionamiento de bloques, desconexión de enlaces y gestión de marcos (Frames) a través de un menú contextual.
+## Installation
 
-## Instalación
+1. Download the `NodeExporter.zip` file from the **Releases** section of this repository.
+2. In Blender, go to **Edit > Preferences > Get Extensions** (or Add-ons).
+3. Click the drop-down menu and choose **Install from Disk...** (or Install...), select the downloaded `NodeExporter.zip` file, and confirm.
+4. Check the box corresponding to **NodeExporter** in the extensions list.
+5. The control panel will be available in the sidebar (`N` key) of the Node Editor.
 
-1. Descargue el archivo `NodeExporter.zip` desde la sección de **Releases** de este repositorio.
-2. En Blender, diríjase a **Edit > Preferences > Add-ons**.
-3. Haga clic en **Install...**, seleccione el archivo `NodeExporter.zip` descargado y confirme.
-4. Active la casilla correspondiente a **NodeExporter** en la lista de complementos.
-5. El panel de control estará disponible en la barra lateral (tecla `N`) del editor de nodos.
+## Usage Instructions
 
-## Instrucciones de Uso
+1. Open a workspace in Blender containing an active Geometry Nodes tree or Material.
+2. Open the sidebar in the Node Editor and locate the **NodeExporter** tab.
+3. Click the **Use Active Node Tree** button to set the active node tree as the export target.
+4. Select the destination directory on your local system.
+5. Click **Export and Open Viewer**. The system will generate the JSON data file, compile the HTML file, and execute it in your default web browser.
 
-1. Abra un espacio de trabajo en Blender que contenga un árbol de Geometry Nodes o un Material activo.
-2. Despliegue la barra lateral en el Node Editor y ubique la pestaña **NodeExporter**.
-3. Presione el botón **Usar Nodo en Pantalla** para establecer el árbol de nodos activo como objetivo de exportación.
-4. Seleccione el directorio de destino en su sistema local.
-5. Presione **Exportar y Abrir Visor**. El sistema generará el archivo JSON de datos, compilará el archivo HTML y lo ejecutará en su navegador web predeterminado.
-
-<img width="402" height="513" alt="image" src="https://github.com/user-attachments/assets/010d487a-a8b3-4f05-8bae-f5865df03c02" />
-<img width="402" height="508" alt="image" src="https://github.com/user-attachments/assets/5e4d6b80-77ab-4088-9857-16472999aa2f" />
-
-## Video de muestra
+## Showcase Video
 
 https://github.com/user-attachments/assets/0731de55-1a80-49c8-b755-2b51091aa429
 
-## Arquitectura del Proyecto
+## Project Architecture
 
-El complemento está estructurado en dos componentes principales:
+The add-on is structured into three main components:
 
 ```text
 NodeExporter/
-├── __init__.py    # Lógica backend: Extracción mediante la API de Blender y formateo de datos a JSON.
-└── visor.html     # Motor frontend: Renderizado DOM, cálculos de lienzo y UI interactiva.
+├── __init__.py           # Backend logic: Extraction via Blender API and JSON data formatting.
+├── visor.html            # Frontend engine: DOM rendering, canvas calculations, and interactive UI.
+└── blender_manifest.toml # Extension metadata for the official Blender platform.
