@@ -11,6 +11,8 @@ The purpose of this tool is to facilitate the visualization, documentation, and 
 
 ## Key Features
 
+<img width="1920" height="1080" alt="NODE EXPORTER PROJECT 2" src="https://github.com/user-attachments/assets/6f099712-29a4-4e10-9785-17294282f280" />
+
 * **Standalone Web Viewer:** Generates a standalone HTML file that does not require local servers or external dependencies to run.
 * **High-Resolution Image Export:** Enables exporting the web canvas to PNG format (2x scale), supporting solid backgrounds or alpha channel (transparency) for integration into graphic composition and editing software.
 * **Dynamic Interface and Canvas:** Implements an infinite and resizable workspace, with an overlay interface that allows real-time customization of the background, grid density, and connection routing (thickness and line style).
@@ -32,6 +34,9 @@ The purpose of this tool is to facilitate the visualization, documentation, and 
 3. Click the **Use Active Node Tree** button to set the active node tree as the export target.
 4. Select the destination directory on your local system.
 5. Click **Export and Open Viewer**. The system will generate the JSON data file, compile the HTML file, and execute it in your default web browser.
+
+<img width="397" height="510" alt="Captura de pantalla 2026-06-18 125127" src="https://github.com/user-attachments/assets/c3da4537-2039-4388-9908-26ff86524947" />
+<img width="402" height="527" alt="Captura de pantalla 2026-06-18 125135" src="https://github.com/user-attachments/assets/db71b39c-769a-4c22-9515-d31022e3978a" />
 
 ## Showcase Video
 
