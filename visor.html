@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>NodeExporter Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="data_export.js"></script>
+    <style>
+        body { background-color: #121212; color: #eeeeee; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        
+        /* INTERFAZ GLASSMORPHISM (SOLO UI EXTERNA) CON ACENTO AZUL */
+        #ui-bar { 
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; display: flex; align-items: center; gap: 12px; padding: 14px 24px;
+            background: rgba(22, 22, 22, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+            box-sizing: border-box;
+        }
+
+        .btn-glass { 
+            background: rgba(255, 255, 255, 0.05); color: #cfcfcf; border: 1px solid rgba(255, 255, 255, 0.1); 
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;
+            display: flex; align-items: center; gap: 8px; transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .btn-glass:hover { background: rgba(255, 255, 255, 0.1); color: #fff; transform: translateY(-1px); border-color: rgba(255, 255, 255, 0.2); }
+        .btn-glass:active { transform: translateY(1px); }
+        
+        .btn-export { background: rgba(33, 150, 243, 0.85); color: #fff; border: 1px solid rgba(33, 150, 243, 1); box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3); }
+        .btn-export:hover { background: rgba(33, 150, 243, 1); border-color: rgba(64, 196, 255, 1); box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4); }
+
+        input[type="file"] { display: none; }
+
+        #viewport { position: absolute; top: 65px; bottom: 0; left: 0; right: 0; overflow: hidden; background-color: transparent; cursor: default; }
+        #canvas-container { position: relative; transform-origin: 0 0; }
+        
+        #bg-svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        #frames-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        #cables-svg   { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        #nodes-layer  { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+
+        /* ESTILO CLÁSICO PARA LOS NODOS */
+        .node {
+            position: absolute; background-color: #333333; border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid #111; 
+            width: fit-content; min-width: 140px; 
+            user-select: none; -webkit-user-select: none; transition: box-shadow 0.1s;
+            pointer-events: auto; 
+        }
+        
+        .node.selected { border-color: #2196F3; box-shadow: 0 0 0 2px #2196F3, 0 4px 15px rgba(33, 150, 243, 0.4) !important; }
+
+        .node-header { background-color: #444444; padding: 6px 10px; font-weight: bold; font-size: 12px; border-radius: 5px 5px 0 0; text-align: center; cursor: grab; text-shadow: none; color: #eee; }
+        .node-header:active { cursor: grabbing; }
+        .node-body { padding: 6px 0; display: flex; flex-direction: column; gap: 4px; }
+        .socket-row { display: flex; justify-content: space-between; position: relative; font-size: 11px; }
+        
+        .socket-input, .socket-output { display: flex; align-items: center; min-height: 18px; flex: 1; padding-bottom: 2px; }
+        .socket-input { justify-content: flex-start; }
+        .socket-output { justify-content: flex-end; }
+        .socket-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #aaa; border: 1px solid #222; position: absolute; cursor: crosshair; top: 4px; }
+        .socket-diamond { border-radius: 2px !important; transform: rotate(45deg); }
+        .socket-input .socket-dot { left: -5px; }
+        .socket-output .socket-dot { right: -5px; }
+        .socket-label { padding: 0 8px; color: #ccc; white-space: nowrap; }
+
+        .node-frame { background-color: rgba(0,0,0,0.2); border: 2px dashed #666; box-shadow: none; border-radius: 6px;}
+        .node-frame .node-header { background: transparent !important; text-align: center; font-size: 18px; color: #888; cursor: grab; pointer-events: auto; border:none; padding-top:10px;}
+        .node-frame .node-header:active { cursor: grabbing; }
+        .node-frame .node-body { display: none; }
+
+        .node-panel-header {
+            background-color: rgba(0,0,0,0.2); color: #ccc; padding: 4px 10px; font-size: 11px;
+            cursor: pointer; border-top: 1px solid #222; border-bottom: 1px solid #222;
+            display: flex; align-items: center; user-select: none;
+        }
+        .node-panel-header:hover { background-color: rgba(0,0,0,0.4); color: #fff; }
+        .node-panel-header .arrow { font-size: 8px; margin-right: 6px; transition: transform 0.1s; }
+        .node-panel-header.closed .arrow { transform: rotate(-90deg); }
+        .node-panel-content { display: block; padding-top: 4px; }
+
+        /* LA "X" INVISIBLE POR DEFECTO PARA TODOS LOS NODOS */
+        .delete-socket-btn { display: none; cursor: pointer; color: #ff5555; margin: 0 6px; transition: transform 0.1s; font-size: 11px; font-weight: bold;}
+        .delete-socket-btn:hover { transform: scale(1.3); }
+        .socket-row:hover .delete-socket-btn { display: inline-block; }
+
+        .node-dropdown { background-color: #3a3a3a; color: #ddd; font-size: 11px; padding: 4px 8px; border-radius: 4px; margin: 2px 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #222; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); }
+        .node-dropdown::after { content: '▼'; font-size: 8px; color: #999; margin-left: 5px;}
+        .socket-slider { background-color: #444; color: #ddd; font-size: 11px; padding: 2px 6px; border-radius: 4px; min-width: 70px; text-align: center; border: 1px solid #222; margin-left: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .socket-slider.blue { background-color: #416086; }
+        .socket-checkbox { width: 10px; height: 10px; background-color: #444; border: 1px solid #222; border-radius: 2px; margin-right: 5px; display: flex; align-items: center; justify-content: center; font-size: 9px;}
+
+        /* UI Glassmorphism Panel Lateral */
+        #bg-panel { 
+            position: fixed; top: 75px; right: -320px; width: 280px; max-height: 80vh; overflow-y: auto; z-index: 1000; transition: right 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: 16px 0 0 16px;
+            background: rgba(26, 26, 26, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-right: none; box-shadow: -10px 10px 40px rgba(0,0,0,0.5); 
+        }
+        #bg-panel::-webkit-scrollbar { width: 6px; }
+        #bg-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        #bg-panel.open { right: 0; }
+        .bg-setting-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #b0b0b0; font-weight: 500;}
+        .bg-setting-row input[type="color"] { border: none; padding: 0; width: 32px; height: 26px; cursor: pointer; border-radius:6px; background: transparent;}
+        .bg-setting-row select, .bg-setting-row input[type="range"], .bg-setting-row input[type="number"] { width: 125px; background: rgba(0,0,0,0.4); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 6px; font-family: inherit;}
+        
+        #selection-box { position: fixed; border: 1px dashed rgba(255,255,255,0.8); background-color: rgba(33, 150, 243, 0.1); z-index: 9999; display: none; pointer-events: none; border-radius:4px;}
+        
+        /* Menú Contextual (UI Glassmorphism) */
+        #context-menu { 
+            display: none; position: fixed; z-index: 10000; border-radius: 10px; padding: 8px; min-width: 190px;
+            background: rgba(30, 30, 30, 0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+        }
+        .ctx-btn { 
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; font-size: 13px; font-weight: 500; cursor: pointer; color: #ccc; 
+            border-radius: 6px; user-select: none; transition: all 0.15s ease; 
+        }
+        .ctx-btn svg { width: 15px; height: 15px; opacity: 0.8; }
+        .ctx-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .ctx-btn:hover svg { opacity: 1; }
+        .ctx-btn.danger { color: #ff6b6b; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); border-radius: 0 0 6px 6px;}
+        .ctx-btn.danger:hover { background: rgba(244, 67, 54, 0.15); color: #ff8a80; }
+        .ctx-btn.danger svg { stroke: #ff6b6b; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-bar">
+        <label for="jsonFileInput" class="btn-glass">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Abrir JSON
+        </label>
+        <input type="file" id="jsonFileInput" accept=".json">
+
+        <button onclick="centrarVista()" class="btn-glass">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19 12h3M2 12h3M12 2v3M12 19v3"></path></svg>
+            Centrar Vista
+        </button>
+
+        <button onclick="toggleBgPanel()" class="btn-glass">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>
+            Ajustes
+        </button>
+
+        <div style="margin-left: auto; display: flex; gap: 12px;">
+            <button onclick="exportarImagen(true)" class="btn-glass" id="btnExportarTransp" style="border-color: rgba(0, 214, 163, 0.4); color: #00D6A3;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                PNG Transparente
+            </button>
+
+            <button onclick="exportarImagen(false)" class="btn-glass btn-export" id="btnExportarMain">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                <span id="export-text">Exportar PNG HD</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="bg-panel">
+        <h4 style="margin:0 0 10px 0; color:#fff; font-weight: 600;">Fondo del Lienzo</h4>
+        <div class="bg-setting-row"><label>Tipo Fondo</label><select id="bg-type" onchange="updateBackground()"><option value="solid">Color Liso</option><option value="gradient">Degradado</option></select></div>
+        <div class="bg-setting-row"><label>Color Base</label><input type="color" id="bg-col1" value="#121212" oninput="updateBackground()"></div>
+        <div class="bg-setting-row" id="row-bg-col2" style="display:none;"><label>Color Sec.</label><input type="color" id="bg-col2" value="#2a2a2a" oninput="updateBackground()"></div>
+        <div class="bg-setting-row" id="row-bg-angle" style="display:none;"><label>Ángulo</label><input type="number" id="bg-angle" value="135" min="0" max="360" oninput="updateBackground()"></div>
+        <hr style="width:100%; border:0; border-top:1px solid rgba(255,255,255,0.05); margin: 5px 0;">
+        <div class="bg-setting-row"><label>Color Puntos</label><input type="color" id="dot-col" value="#333333" oninput="updateBackground()"></div>
+        <div class="bg-setting-row"><label>Tamaño</label><input type="range" id="dot-size" min="0" max="4" step="0.5" value="1.5" oninput="updateBackground()"></div>
+        <div class="bg-setting-row"><label>Densidad</label><input type="range" id="dot-space" min="10" max="80" step="2" value="20" oninput="updateBackground()"></div>
+        
+        <hr style="width:100%; border:0; border-top:1px solid rgba(255,255,255,0.05); margin: 5px 0;">
+        <h4 style="margin:0 0 5px 0; color:#fff; font-weight: 600;">Estilos de Trazo</h4>
+        <div class="bg-setting-row"><label>Grosor Nodos</label><input type="range" id="node-bw" min="0" max="5" step="1" value="1" oninput="updateStyles()"></div>
+        <div class="bg-setting-row"><label>Borde Nodos</label><select id="node-bs" onchange="updateStyles()"><option value="solid">Sólido</option><option value="dashed">Guiones</option><option value="dotted">Puntos</option></select></div>
+        <div class="bg-setting-row"><label>Grosor Marcos</label><input type="range" id="frame-bw" min="0" max="10" step="1" value="2" oninput="updateStyles()"></div>
+        <div class="bg-setting-row"><label>Borde Marcos</label><select id="frame-bs" onchange="updateStyles()"><option value="dashed">Guiones</option><option value="solid">Sólido</option><option value="dotted">Puntos</option></select></div>
+        <div class="bg-setting-row"><label>Grosor Cables</label><input type="range" id="cable-w" min="1" max="10" step="1" value="3" oninput="updateStyles()"></div>
+    </div>
+
+    <div id="viewport">
+        <div id="canvas-container">
+            <svg id="bg-svg-layer"></svg>
+            <div id="frames-layer"></div>
+            <svg id="cables-svg"></svg>
+            <div id="nodes-layer"></div>
+        </div>
+        <div id="selection-box"></div>
+    </div>
+
+    <div id="context-menu">
+        <div class="ctx-btn" id="ctx-desconectar" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h2a5 5 0 0 1 0 10h-2m-6 0H7A5 5 0 0 1 7 7h2"></path><line x1="8" y1="12" x2="16" y2="12" stroke-dasharray="2 2"></line></svg>
+            Desconectar Cable
+        </div>
+        <div class="ctx-btn" id="ctx-restaurar" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            Restaurar Puertos
+        </div>
+        <div class="ctx-btn" id="ctx-crear-marco">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+            Crear Marco Nuevo
+        </div>
+        <div class="ctx-btn" id="ctx-asignar-marco" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Añadir a Marco
+        </div>
+        <div class="ctx-btn" id="ctx-quitar-marco" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Quitar de Marco
+        </div>
+        <div class="ctx-btn" id="ctx-renombrar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Renombrar
+        </div>
+        <div class="ctx-btn danger" id="ctx-eliminar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            Eliminar Nodo
+        </div>
+    </div>
+
+    <script>
+        const COLOR_MAP = { "GEOMETRY": "#00D6A3", "VALUE": "#A1A1A1", "INT": "#228B22", "VECTOR": "#6363C7", "BOOLEAN": "#D6A3FF", "MATERIAL": "#FF8C9A", "RGBA": "#C7C729", "SHADER": "#63C763", "CUSTOM": "#FFFFFF" };
+        const KNOWN_PANELS = {
+            'ShaderNodeBsdfPrincipled': {
+                'Diffuse': ['Diffuse Roughness'],
+                'Subsurface': ['Subsurface Weight', 'Subsurface Radius', 'Subsurface Scale', 'Subsurface IOR', 'Subsurface Anisotropy', 'Subsurface Translucency'],
+                'Specular': ['Specular IOR Level', 'Specular Tint', 'Anisotropic', 'Anisotropic Rotation', 'Tangent'],
+                'Transmission': ['Transmission Weight'],
+                'Coat': ['Coat Weight', 'Coat Roughness', 'Coat IOR', 'Coat Tint', 'Coat Normal'],
+                'Sheen': ['Sheen Weight', 'Sheen Roughness', 'Sheen Tint'],
+                'Emission': ['Emission Color', 'Emission Strength'],
+                'Thin Film': ['Thin Film Thickness', 'Thin Film IOR']
+            }
+        };
+
+        let socketsPositions = {};
+        let canvasBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+        let currentDataGlobal = null;
+
+        let panX = 0, panY = 0, zoomScale = 1;
+        const MIN_ZOOM = 0.05, MAX_ZOOM = 5;
+        
+        const GRID_SCALE = 1.35; 
+
+        const viewportEl = document.getElementById('viewport');
+        const canvasEl = document.getElementById('canvas-container');
+
+        window.onload = function() {
+            if (typeof INJECTED_DATA !== 'undefined' && INJECTED_DATA) {
+                currentDataGlobal = INJECTED_DATA;
+                setTimeout(() => renderEngine(currentDataGlobal, true), 100);
+            }
+        };
+
+        window.toggleMinimize = function(id, event) {
+            event.stopPropagation();
+            guardarPosiciones();
+            let nodo = currentDataGlobal.nodos.find(n => n.id_interno === id);
+            if (nodo) {
+                nodo.minimizado = !nodo.minimizado;
+                renderEngine(currentDataGlobal, false);
+            }
+        };
+
+        function aplicarTransform() { canvasEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`; }
+
+        document.getElementById('jsonFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) { 
+                currentDataGlobal = JSON.parse(ev.target.result); 
+                renderEngine(currentDataGlobal, true); 
+                e.target.value = ''; 
+            };
+            reader.readAsText(file);
+        });
+
+        function getTodosLosHijos(data, parentId) {
+            let hijos = [];
+            data.nodos.filter(n => n.padre === parentId).forEach(h => {
+                hijos.push(h);
+                hijos = hijos.concat(getTodosLosHijos(data, h.id_interno));
+            });
+            return hijos;
+        }
+
+        function guardarPosiciones() {
+            if (!currentDataGlobal) return;
+            document.querySelectorAll('.node').forEach(el => {
+                let nId = el.id.replace('node_', '');
+                let nodo = currentDataGlobal.nodos.find(n => n.id_interno === nId);
+                if (nodo) {
+                    nodo.posicion.x = (parseFloat(el.style.left) + canvasBounds.minX) / GRID_SCALE;
+                    nodo.posicion.y = -(parseFloat(el.style.top) + canvasBounds.minY) / GRID_SCALE;
+                }
+            });
+        }
+
+        function renderEngine(data, initialLoad = false) {
+            const nodesLayer = document.getElementById('nodes-layer');
+            const framesLayer = document.getElementById('frames-layer');
+            const svgLayer = document.getElementById('cables-svg');
+            
+            nodesLayer.innerHTML = ''; framesLayer.innerHTML = ''; svgLayer.innerHTML = ''; socketsPositions = {};
+
+            if (initialLoad) {
+                panX = 0; panY = 0; zoomScale = 1;
+                aplicarTransform();
+            }
+
+            const marcos = data.nodos.filter(n => n.es_marco);
+            data.nodos.forEach(n => {
+                if (!n.es_marco && !n.padre) {
+                    marcos.forEach(m => {
+                        const mLeft = m.posicion.x - 50, mRight = m.posicion.x + (m.dimensiones.ancho || 200) + 50;
+                        const mTop = m.posicion.y + 50, mBottom = m.posicion.y - (m.dimensiones.alto || 200) - 50;
+                        if (n.posicion.x >= mLeft && n.posicion.x <= mRight && n.posicion.y <= mTop && n.posicion.y >= mBottom) {
+                            n.padre = m.id_interno;
+                        }
+                    });
+                }
+            });
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            data.nodos.forEach(n => {
+                let px = n.posicion.x * GRID_SCALE;
+                let py = -n.posicion.y * GRID_SCALE;
+                let w = (n.dimensiones.ancho || 140) * GRID_SCALE;
+                let h = (n.dimensiones.alto || 100) * GRID_SCALE;
+                
+                if(px < minX) minX = px;
+                if(px + w > maxX) maxX = px + w;
+                if(py < minY) minY = py;
+                if(py + h > maxY) maxY = py + h;
+            });
+
+            minX -= 150; minY -= 150; maxX += 150; maxY += 150;
+            canvasBounds = { minX, minY, maxX, maxY };
+
+            canvasEl.style.width = (maxX - minX) + 'px'; canvasEl.style.height = (maxY - minY) + 'px';
+            svgLayer.setAttribute('width', canvasEl.style.width); svgLayer.setAttribute('height', canvasEl.style.height);
+            document.getElementById('bg-svg-layer').setAttribute('width', canvasEl.style.width);
+            document.getElementById('bg-svg-layer').setAttribute('height', canvasEl.style.height);
+
+            data.nodos.forEach(nodo => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = nodo.es_marco ? 'node node-frame' : 'node';
+                nodeDiv.id = 'node_' + nodo.id_interno;
+                
+                let px = nodo.posicion.x * GRID_SCALE;
+                let py = -nodo.posicion.y * GRID_SCALE;
+                nodeDiv.style.left = (px - canvasBounds.minX) + 'px';
+                nodeDiv.style.top = (py - canvasBounds.minY) + 'px';
+
+                let zIndex = 20; 
+                if (nodo.es_marco) {
+                    zIndex = 1;
+                    let p = nodo.padre;
+                    while(p) { zIndex++; p = data.nodos.find(n => n.id_interno === p)?.padre; }
+                }
+                nodeDiv.style.zIndex = zIndex;
+                nodeDiv.setAttribute('data-z', zIndex);
+
+                const nType = nodo.tipo || '';
+                const nTypeStr = nType.toLowerCase();
+                const displayName = (nodo.etiqueta || '').replace(/\.\d+$/, '');
+                const nameStr = displayName.toLowerCase();
+                const isReroute = nType === 'NodeReroute' || (nodo.id_interno || '').includes('Reroute');
+                
+                let isMinimized = nodo.minimizado && !nodo.es_marco;
+
+                if (isMinimized) {
+                    nodeDiv.style.minWidth = 'auto';
+                    nodeDiv.style.width = 'fit-content';
+                } else {
+                    if (nodo.dimensiones.ancho) nodeDiv.style.minWidth = Math.max(140, nodo.dimensiones.ancho) + 'px';
+                }
+                
+                if (nodo.es_marco && nodo.dimensiones.alto) nodeDiv.style.height = (nodo.dimensiones.alto * GRID_SCALE) + 'px';
+
+                if (isReroute) {
+                    nodeDiv.style.width = '16px'; nodeDiv.style.minWidth = '16px'; nodeDiv.style.height = '16px';
+                    nodeDiv.style.borderRadius = '50%'; nodeDiv.style.backgroundColor = 'transparent'; 
+                    nodeDiv.style.border = 'none'; nodeDiv.style.boxShadow = 'none'; nodeDiv.style.padding = '0';
+                    
+                    const inPort = nodo.puertos_entrada[0];
+                    const outPort = nodo.puertos_salida[0];
+                    const color = COLOR_MAP[inPort ? inPort.tipo_dato : null] || COLOR_MAP[outPort ? outPort.tipo_dato : null] || "#aaa";
+                    
+                    let dotsHtml = '';
+                    if (inPort) dotsHtml += `<div class="socket-dot" id="socket_in_${nodo.id_interno}_${inPort.nombre}" data-node="${nodo.id_interno}" data-port="${inPort.nombre}" data-type="in" style="background-color: ${color}; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.8); position: relative; left: auto; right: auto; margin: 0; box-sizing: border-box;"></div>`;
+                    if (outPort) dotsHtml += `<div class="socket-dot" id="socket_out_${nodo.id_interno}_${outPort.nombre}" data-node="${nodo.id_interno}" data-port="${outPort.nombre}" data-type="out" style="background-color: ${color}; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.8); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; box-sizing: border-box; ${inPort ? 'opacity: 0;' : ''}"></div>`;
+
+                    nodeDiv.innerHTML = `<div class="node-header" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; cursor: grab; background: transparent !important; padding: 0 !important; border: none; min-width: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow:none;">
+                            ${dotsHtml}
+                        </div>`;
+                    nodesLayer.appendChild(nodeDiv);
+                    hacerNodoArrastrable(nodeDiv, nodo);
+                    return; 
+                }
+
+                let headerColor = "background-color: #444444;"; 
+                if (nTypeStr.includes('math') || nTypeStr.includes('maprange') || nTypeStr.includes('vector') || nTypeStr.includes('combine') || nTypeStr.includes('separate') || nTypeStr.includes('colorramp')) headerColor = "background-color: #3b7489;"; 
+                else if (nTypeStr.includes('tex')) headerColor = "background-color: #a45837;"; 
+                else if (nTypeStr.includes('color') || nTypeStr.includes('rgb') || nTypeStr.includes('hue') || nTypeStr.includes('mix')) headerColor = "background-color: #b79257;"; 
+                else if (nTypeStr.includes('bsdf') || nTypeStr.includes('shader') || nTypeStr.includes('emission') || nTypeStr.includes('principled') || nTypeStr.includes('volume')) headerColor = "background-color: #488442;"; 
+                else if (nTypeStr.includes('output') || nameStr.includes('output')) headerColor = "background-color: #8c3234;"; 
+                else if (nTypeStr.includes('input') || nTypeStr.includes('value') || nameStr.includes('info') || nTypeStr.includes('coordinate') || nameStr.includes('input')) headerColor = "background-color: #383838;"; 
+                else if (nTypeStr.includes('curve') || nTypeStr.includes('geometry') || nTypeStr.includes('proximity') || nTypeStr.includes('position') || nTypeStr.includes('attribute') || nTypeStr.includes('mesh')) headerColor = "background-color: #24755a;"; 
+
+                let html = '';
+                
+                let toggleSvg = isMinimized 
+                    ? `<svg onclick="window.toggleMinimize('${nodo.id_interno}', event)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="cursor: pointer; margin-right: 6px;"><polyline points="9 18 15 12 9 6"></polyline></svg>`
+                    : `<svg onclick="window.toggleMinimize('${nodo.id_interno}', event)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); cursor: pointer;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+                if (nodo.es_marco) toggleSvg = '';
+
+                if (isMinimized) {
+                    let inDots = '';
+                    let inVisibles = nodo.puertos_entrada.filter(p => !p.oculto);
+                    inVisibles.forEach(input => {
+                        const color = COLOR_MAP[input.tipo_dato] || "#aaa";
+                        const isFieldIn = input.tipo_dato === 'BOOLEAN' || (input.nombre || '') === 'Selection';
+                        const diamondClassIn = isFieldIn ? 'socket-diamond' : '';
+                        inDots += `<div class="socket-dot ${diamondClassIn}" id="socket_in_${nodo.id_interno}_${input.nombre}" data-node="${nodo.id_interno}" data-port="${input.nombre}" data-type="in" style="background-color: ${color}; position: relative; left: auto; right: auto; margin: 0; box-sizing: border-box; top: auto;" data-dashed="${isFieldIn}"></div>`;
+                    });
+
+                    let outDots = '';
+                    let outVisibles = nodo.puertos_salida.filter(p => !p.oculto);
+                    outVisibles.forEach(output => {
+                        const color = COLOR_MAP[output.tipo_dato] || "#aaa";
+                        const isFieldOut = output.tipo_dato === 'BOOLEAN' || ((output.nombre || '') === 'Result' && nType.includes('Compare'));
+                        const diamondClassOut = isFieldOut ? 'socket-diamond' : '';
+                        outDots += `<div class="socket-dot ${diamondClassOut}" id="socket_out_${nodo.id_interno}_${output.nombre}" data-node="${nodo.id_interno}" data-port="${output.nombre}" data-type="out" style="background-color: ${color}; position: relative; left: auto; right: auto; margin: 0; box-sizing: border-box; top: auto;" data-dashed="${isFieldOut}"></div>`;
+                    });
+                    
+                    let dotCount = Math.max(inVisibles.length, outVisibles.length);
+                    let minH = Math.max(28, dotCount * 13 + 12);
+
+                    html = `<div class="node-header" style="${headerColor} border-radius: 6px; display: flex; align-items: center; padding: 6px 16px; position: relative; min-height: ${minH}px; justify-content: center;">
+                        <div style="position: absolute; left: -5px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 3px;">${inDots}</div>
+                        ${toggleSvg}
+                        <span style="white-space: nowrap;">${displayName}</span>
+                        <div style="position: absolute; right: -5px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 3px;">${outDots}</div>
+                    </div>`;
+                    
+                } else {
+                    if (nodo.es_marco) {
+                        html = `<div class="node-header" style="background: transparent !important; border: none; padding-top: 10px; color: #888;">${displayName}</div>`;
+                    } else {
+                        html = `<div class="node-header" style="${headerColor} display: flex; align-items: center; justify-content: center; position: relative;">${toggleSvg}<span>${displayName}</span></div>`;
+                    }
+
+                    if (!nodo.es_marco) {
+                        let dropdownHtml = '';
+                        if (nodo.opciones_lista && nodo.opciones_lista.length > 0) nodo.opciones_lista.forEach(op => { dropdownHtml += `<div class="node-dropdown">${op}</div>`; });
+                        if ((nType.includes('MapRange') || displayName.includes('Map Range')) && !nType.includes('Group')) dropdownHtml += `<div style="padding: 2px 10px; font-size: 11px; display:flex; align-items:center; gap:5px; color:#ddd;"><div class="socket-checkbox" style="background:#2196F3; border-color:rgba(255,255,255,0.1); color:#fff;">✔</div> Clamp</div>`;
+                        
+                        if (nodo.color_ramp_data && nodo.color_ramp_data.length > 0) {
+                            let stops = nodo.color_ramp_data.map(s => `rgba(${Math.round(Math.pow(s.color[0],1/2.2)*255)},${Math.round(Math.pow(s.color[1],1/2.2)*255)},${Math.round(Math.pow(s.color[2],1/2.2)*255)},${s.color[3]}) ${s.pos*100}%`).join(', ');
+                            dropdownHtml += `<div style="height: 24px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); margin: 8px 10px; background: linear-gradient(to right, ${stops}); width:100%;"></div>`;
+                        }
+
+                        if (nodo.rgb_color) {
+                            let c = nodo.rgb_color;
+                            let rL = Math.pow(c[0], 1/2.2); let gL = Math.pow(c[1], 1/2.2); let bL = Math.pow(c[2], 1/2.2);
+                            let r = Math.round(rL*255); let g = Math.round(gL*255); let b = Math.round(bL*255);
+                            let rgbaStr = `rgba(${r}, ${g}, ${b}, ${c[3]})`;
+                            
+                            let maxVal = Math.max(rL, gL, bL);
+                            let vPer = (1 - maxVal) * 100; 
+
+                            dropdownHtml += `
+                            <div style="display:flex; flex-direction:column; align-items:center; background:rgba(0,0,0,0.2); border-radius:8px; padding:10px; margin: 5px 10px; border:1px solid rgba(255,255,255,0.05); width: calc(100% - 20px); box-sizing: border-box;">
+                                <div style="display:flex; align-items:center; gap: 15px; width: 100%; justify-content: center;">
+                                    <div style="position:relative; width:100px; height:100px; border-radius:50%; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); overflow:hidden;">
+                                        <canvas id="wheel_${nodo.id_interno}" width="100" height="100"></canvas>
+                                        <div id="marker_${nodo.id_interno}" style="position:absolute; width:10px; height:10px; border-radius:50%; border:2px solid rgba(255,255,255,0.8); background:transparent; box-shadow: 0 0 2px rgba(0,0,0,0.5);"></div>
+                                    </div>
+                                    <div style="position:relative; width:15px; height:100px; background:linear-gradient(to bottom, #fff, #000); border-radius:4px; border:1px solid rgba(0,0,0,0.5);">
+                                        <div style="position:absolute; top:${vPer}%; left:-3px; right:-3px; height:4px; border-radius:2px; border:2px solid rgba(255,255,255,0.9); background:transparent; margin-top:-3px; box-shadow: 0 0 2px rgba(0,0,0,0.5);"></div>
+                                    </div>
+                                </div>
+                                <div style="height: 20px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); margin-top: 12px; background-color: ${rgbaStr}; width:100%; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);"></div>
+                            </div>`;
+                        }
+
+                        if(dropdownHtml !== '') html += `<div style="padding-top: 5px; display: flex; flex-wrap: wrap;">${dropdownHtml}</div>`;
+
+                        let finalBodyHtml = `<div class="node-body">`;
+                        let currentPanelName = null;
+                        
+                        let inVisibles = nodo.puertos_entrada.filter(p => !p.oculto);
+                        let outVisibles = nodo.puertos_salida.filter(p => !p.oculto);
+                        const maxRows = Math.max(inVisibles.length, outVisibles.length);
+
+                        for (let i = 0; i < maxRows; i++) {
+                            const input = inVisibles[i];
+                            const output = outVisibles[i];
+                            
+                            let pName = null;
+                            if (input && KNOWN_PANELS[nType]) {
+                                for (const [key, items] of Object.entries(KNOWN_PANELS[nType])) {
+                                    if (items.includes(input.nombre)) { pName = key; break; }
+                                }
+                            }
+
+                            if (pName !== currentPanelName) {
+                                if (currentPanelName !== null) finalBodyHtml += `</div>`; 
+                                if (pName !== null) {
+                                    finalBodyHtml += `<div class="node-panel-header closed" onclick="this.classList.toggle('closed'); const c = this.nextElementSibling; c.style.display = c.style.display === 'none' ? 'block' : 'none'; guardarPosiciones(); recalcularCablesYDibujar(); ajustarFrames(); adaptarLienzo();"><span class="arrow">▼</span> ${pName}</div>`;
+                                    finalBodyHtml += `<div class="node-panel-content" style="display: none;">`;
+                                }
+                                currentPanelName = pName;
+                            }
+
+                            let rowHtml = `<div class="socket-row">`;
+
+                            if (input) {
+                                const color = COLOR_MAP[input.tipo_dato] || "#aaa";
+                                const isFieldIn = input.tipo_dato === 'BOOLEAN' || (input.nombre || '') === 'Selection';
+                                const diamondClassIn = isFieldIn ? 'socket-diamond' : '';
+                                const btnIn = `<div class="delete-socket-btn" onclick="borrarPuerto('${nodo.id_interno}', '${input.nombre}', 'in')" title="Ocultar">✖</div>`;
+                                let labelHtml = `<span class="socket-label">${input.nombre}</span>`;
+                                
+                                if (!input.conectado && input.valor !== undefined && input.valor !== null) {
+                                    if (typeof input.valor === 'boolean') {
+                                        const checkStyle = input.valor ? 'background:#2196F3; border-color:rgba(255,255,255,0.1);' : '';
+                                        labelHtml = `<div style="display:flex; align-items:center; color:#ccc; margin-left:8px; font-size:11px;"><div class="socket-checkbox" style="${checkStyle}">${input.valor ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}</div> ${input.nombre}</div>`;
+                                    } else if (Array.isArray(input.valor) && input.tipo_dato === 'RGBA') {
+                                        let c = input.valor;
+                                        let rgbaStr = `rgba(${Math.round(Math.pow(c[0],1/2.2)*255)}, ${Math.round(Math.pow(c[1],1/2.2)*255)}, ${Math.round(Math.pow(c[2],1/2.2)*255)}, ${c[3]})`;
+                                        labelHtml = `<div style="display:flex; align-items:center; margin-left:6px;"><div style="width:35px; height:14px; border-radius:3px; background-color:${rgbaStr}; border:1px solid rgba(255,255,255,0.1); margin-right:8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6);"></div><span style="color:#d0d0d0;">${input.nombre}</span></div>`;
+                                    } else if (Array.isArray(input.valor)) {
+                                        let vecHtml = `<div style="display:flex; flex-direction:column; gap:3px; margin-left:8px;">`;
+                                        input.valor.slice(0, 3).forEach(v => { vecHtml += `<div class="socket-slider" style="min-width:60px; justify-content:center;"><span>${v}</span></div>`; });
+                                        vecHtml += `</div>`;
+                                        labelHtml = `<div style="display:flex; align-items:center;"><span style="color:#d0d0d0; font-size:11px; margin-left:8px;">${input.nombre}</span>${vecHtml}</div>`;
+                                    } else {
+                                        let isSliderAzul = ['Weight', 'Factor', 'Fac', 'Probability', 'Mix', 'Scale'].includes(input.nombre); 
+                                        labelHtml = `<div class="socket-slider ${isSliderAzul ? 'blue' : ''}"><span style="color:#ccc; margin-right:15px;">${input.nombre}</span><span>${input.valor}</span></div>`;
+                                    }
+                                }
+                                rowHtml += `<div class="socket-input" style="align-items: flex-start; padding-top:2px;"><div class="socket-dot ${diamondClassIn}" id="socket_in_${nodo.id_interno}_${input.nombre}" data-node="${nodo.id_interno}" data-port="${input.nombre}" data-type="in" style="background-color: ${color}; top:6px;" data-dashed="${isFieldIn}"></div>${labelHtml}${btnIn}</div>`;
+                            } else rowHtml += `<div class="socket-input"></div>`;
+
+                            if (output) {
+                                const color = COLOR_MAP[output.tipo_dato] || "#aaa";
+                                const isFieldOut = output.tipo_dato === 'BOOLEAN' || ((output.nombre || '') === 'Result' && nType.includes('Compare'));
+                                const diamondClassOut = isFieldOut ? 'socket-diamond' : ''; 
+                                const btnOut = `<div class="delete-socket-btn" onclick="borrarPuerto('${nodo.id_interno}', '${output.nombre}', 'out')" title="Ocultar">✖</div>`;
+
+                                rowHtml += `<div class="socket-output" style="align-items: flex-start; padding-top:2px;">${btnOut}<span class="socket-label">${output.nombre}</span><div class="socket-dot ${diamondClassOut}" id="socket_out_${nodo.id_interno}_${output.nombre}" data-node="${nodo.id_interno}" data-port="${output.nombre}" data-type="out" style="background-color: ${color}; top:6px;" data-dashed="${isFieldOut}"></div></div>`;
+                            } else rowHtml += `<div class="socket-output"></div>`;
+
+                            rowHtml += `</div>`;
+                            finalBodyHtml += rowHtml;
+                        }
+
+                        if (currentPanelName !== null) finalBodyHtml += `</div>`; 
+                        finalBodyHtml += `</div>`; 
+                        html += finalBodyHtml;
+                    }
+                }
+
+                if (!nodo.es_marco && !isMinimized) {
+                    html += `<div style="position:absolute; right: -4px; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 10;" onmousedown="
+                        event.stopPropagation();
+                        let startX = event.clientX;
+                        let startWidth = this.parentElement.offsetWidth;
+                        window.onmousemove = (ev) => {
+                            this.parentElement.style.width = 'fit-content';
+                            this.parentElement.style.minWidth = (startWidth + (ev.clientX - startX)/zoomScale) + 'px';
+                            recalcularCablesYDibujar();
+                            ajustarFrames();
+                            adaptarLienzo();
+                        };
+                        window.onmouseup = () => { window.onmousemove = null; guardarPosiciones(); }
+                    "></div>`;
+                }
+
+                nodeDiv.innerHTML = html;
+                
+                if (nodo.es_marco) framesLayer.appendChild(nodeDiv);
+                else nodesLayer.appendChild(nodeDiv);
+
+                if (nodo.rgb_color && !isMinimized) {
+                    let canvas = document.getElementById(`wheel_${nodo.id_interno}`);
+                    let marker = document.getElementById(`marker_${nodo.id_interno}`);
+                    if (canvas && marker) {
+                        let ctx = canvas.getContext('2d');
+                        for(let a=0; a<360; a++) {
+                            ctx.beginPath(); ctx.moveTo(50, 50); ctx.arc(50, 50, 50, (a-1)*Math.PI/180, (a+1)*Math.PI/180);
+                            ctx.fillStyle = `hsl(${a}, 100%, 50%)`; ctx.fill();
+                        }
+                        let grd = ctx.createRadialGradient(50, 50, 0, 50, 50, 50);
+                        grd.addColorStop(0, 'white'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+                        ctx.fillStyle = grd; ctx.fillRect(0,0,100,100);
+
+                        let c = nodo.rgb_color; 
+                        let rL = Math.pow(c[0], 1/2.2); let gL = Math.pow(c[1], 1/2.2); let bL = Math.pow(c[2], 1/2.2);
+                        let max = Math.max(rL, gL, bL), min = Math.min(rL, gL, bL);
+                        let h = 0, s = (max === 0 ? 0 : (max - min) / max);
+                        if (max !== min) {
+                            if (max === rL) h = (gL - bL) / (max - min) + (gL < bL ? 6 : 0);
+                            else if (max === gL) h = (bL - rL) / (max - min) + 2;
+                            else h = (rL - gL) / (max - min) + 4;
+                            h /= 6;
+                        }
+                        let angleRad = h * 2 * Math.PI;
+                        marker.style.left = (50 + Math.cos(angleRad) * s * 50 - 6) + 'px';
+                        marker.style.top = (50 - Math.sin(angleRad) * s * 50 - 6) + 'px';
+                    }
+                }
+
+                if (nodo.es_marco) hacerMarcoArrastrable(nodeDiv, nodo);
+                else hacerNodoArrastrable(nodeDiv, nodo);
+            });
+
+            setTimeout(() => {
+                const containerRect = canvasEl.getBoundingClientRect();
+                document.querySelectorAll('.socket-dot').forEach(dot => {
+                    const rect = dot.getBoundingClientRect();
+                    socketsPositions[dot.id] = {
+                        x: (rect.left - containerRect.left) / zoomScale + (rect.width / 2),
+                        y: (rect.top - containerRect.top) / zoomScale + (rect.height / 2),
+                        color: dot.style.backgroundColor,
+                        isDashed: dot.getAttribute('data-dashed') === 'true' 
+                    };
+                });
+                drawCables(data.cables);
+                ajustarFrames(); 
+                
+                if (initialLoad) {
+                    adaptarLienzo(); 
+                    centrarVista(); 
+                } else {
+                    adaptarLienzo();
+                }
+                
+                updateBackground();
+                if (typeof updateStyles === 'function') updateStyles(); 
+            }, 100);
+        }
+
+        function adaptarLienzo() {
+            const nodes = document.querySelectorAll('.node');
+            if (nodes.length === 0) return;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            nodes.forEach(n => {
+                let l = parseFloat(n.style.left) || 0;
+                let t = parseFloat(n.style.top) || 0;
+                let r = l + n.offsetWidth;
+                let b = t + n.offsetHeight;
+                if (l < minX) minX = l;
+                if (t < minY) minY = t;
+                if (r > maxX) maxX = r;
+                if (b > maxY) maxY = b;
+            });
+            
+            const MARGEN = 150; 
+            let shiftX = MARGEN - minX;
+            let shiftY = MARGEN - minY;
+
+            if (Math.abs(shiftX) > 1 || Math.abs(shiftY) > 1) {
+                nodes.forEach(n => {
+                    n.style.left = ((parseFloat(n.style.left) || 0) + shiftX) + 'px';
+                    n.style.top = ((parseFloat(n.style.top) || 0) + shiftY) + 'px';
+                });
+                maxX += shiftX;
+                maxY += shiftY;
+                
+                canvasBounds.minX -= shiftX;
+                canvasBounds.minY -= shiftY;
+                
+                panX -= shiftX * zoomScale;
+                panY -= shiftY * zoomScale;
+                aplicarTransform();
+                
+                recalcularCablesYDibujar();
+            }
+
+            canvasEl.style.width = (maxX + MARGEN) + 'px';
+            canvasEl.style.height = (maxY + MARGEN) + 'px';
+            document.getElementById('cables-svg').setAttribute('width', canvasEl.style.width);
+            document.getElementById('cables-svg').setAttribute('height', canvasEl.style.height);
+            document.getElementById('bg-svg-layer').setAttribute('width', canvasEl.style.width);
+            document.getElementById('bg-svg-layer').setAttribute('height', canvasEl.style.height);
+        }
+
+        function drawCables(cables) {
+            const svg = document.getElementById('cables-svg');
+            let cWidth = document.getElementById('cable-w') ? document.getElementById('cable-w').value : 3;
+            let svgHtml = '';
+            cables.forEach(cable => {
+                const posFrom = socketsPositions[`socket_out_${cable.desde_nodo}_${cable.desde_puerto}`];
+                const posTo = socketsPositions[`socket_in_${cable.hacia_nodo}_${cable.hacia_puerto}`];
+
+                if (posFrom && posTo) {
+                    const x1 = posFrom.x, y1 = posFrom.y, x2 = posTo.x, y2 = posTo.y;
+                    const dx = Math.abs(x2 - x1) * 0.5;
+                    const dashArray = (posFrom.isDashed || posTo.isDashed) ? 'stroke-dasharray="8,5"' : '';
+                    const pathData = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+                    svgHtml += `<path d="${pathData}" stroke="${posFrom.color}" stroke-width="${cWidth}" fill="none" opacity="0.8" ${dashArray} />`;
+                }
+            });
+            svg.innerHTML = svgHtml;
+        }
+
+        function centrarVista() {
+            const contentWidth = canvasEl.offsetWidth, contentHeight = canvasEl.offsetHeight;
+            if (!contentWidth || !contentHeight) return;
+            const PADDING = 0.92; 
+            const scaleX = viewportEl.clientWidth / contentWidth, scaleY = viewportEl.clientHeight / contentHeight;
+            zoomScale = Math.max(MIN_ZOOM, Math.min(Math.min(scaleX, scaleY) * PADDING, MAX_ZOOM));
+            panX = (viewportEl.clientWidth - contentWidth * zoomScale) / 2;
+            panY = (viewportEl.clientHeight - contentHeight * zoomScale) / 2;
+            aplicarTransform();
+        }
+
+        viewportEl.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const rect = viewportEl.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+            const newScale = Math.max(MIN_ZOOM, Math.min(zoomScale * (e.deltaY < 0 ? 1.1 : 0.9), MAX_ZOOM));
+            panX = mouseX - ((mouseX - panX) / zoomScale) * newScale;
+            panY = mouseY - ((mouseY - panY) / zoomScale) * newScale;
+            zoomScale = newScale;
+            aplicarTransform();
+        }, { passive: false });
+
+        let isPanning = false, panStartX = 0, panStartY = 0, panOrigX = 0, panOrigY = 0;
+        let isSelecting = false, selStartX = 0, selStartY = 0;
+        const selBox = document.getElementById('selection-box');
+
+        viewportEl.addEventListener('mousedown', function(e) {
+            if (e.button === 1) { 
+                e.preventDefault(); isPanning = true; panStartX = e.clientX; panStartY = e.clientY; panOrigX = panX; panOrigY = panY; viewportEl.style.cursor = 'grabbing';
+            } else if (e.button === 0 && !e.target.closest('.node') && !e.target.closest('#context-menu') && !e.target.classList.contains('socket-dot') && !e.target.closest('#bg-panel') && !e.target.closest('#ui-bar')) {
+                isSelecting = true;
+                selStartX = e.clientX; selStartY = e.clientY;
+                selBox.style.display = 'block';
+                selBox.style.left = selStartX + 'px'; selBox.style.top = selStartY + 'px';
+                selBox.style.width = '0px'; selBox.style.height = '0px';
+                if (!e.shiftKey) document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+            }
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (isPanning) {
+                panX = panOrigX + (e.clientX - panStartX); panY = panOrigY + (e.clientY - panStartY); aplicarTransform();
+            } else if (isSelecting) {
+                selBox.style.left = Math.min(e.clientX, selStartX) + 'px';
+                selBox.style.top = Math.min(e.clientY, selStartY) + 'px';
+                selBox.style.width = Math.abs(e.clientX - selStartX) + 'px';
+                selBox.style.height = Math.abs(e.clientY - selStartY) + 'px';
+            }
+        });
+
+        window.addEventListener('mouseup', function(e) {
+            if (e.button === 1 && isPanning) { isPanning = false; viewportEl.style.cursor = 'default'; }
+            if (isSelecting) {
+                isSelecting = false; 
+                const rect = selBox.getBoundingClientRect();
+                document.querySelectorAll('.node').forEach(n => {
+                    const nRect = n.getBoundingClientRect();
+                    if (!(rect.right < nRect.left || rect.left > nRect.right || rect.bottom < nRect.top || rect.top > nRect.bottom)) n.classList.add('selected');
+                });
+                selBox.style.display = 'none';
+            }
+        });
+
+        viewportEl.addEventListener('auxclick', function(e) { if (e.button === 1) e.preventDefault(); });
+
+        function hacerNodoArrastrable(nodeElement, nodoData) {
+            nodeElement.addEventListener('mousedown', (e) => {
+                if (e.button !== 0 || e.target.classList.contains('socket-dot') || e.target.closest('.node-panel-header') || e.target.style.cursor === 'ew-resize') return;
+                e.stopPropagation();
+                if (e.shiftKey) {
+                    nodeElement.classList.toggle('selected');
+                } else {
+                    if (!nodeElement.classList.contains('selected')) {
+                        document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+                        nodeElement.classList.add('selected');
+                    }
+                }
+            });
+
+            const header = nodeElement.querySelector('.node-header');
+            if (!header) return;
+
+            let isDraggingNode = false;
+            let initialPositions = []; 
+            let lastDx = 0, lastDy = 0;
+            let startX, startY;
+
+            header.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return; 
+                e.stopPropagation(); 
+                isDraggingNode = true;
+                startX = e.clientX; startY = e.clientY;
+                lastDx = 0; lastDy = 0;
+                
+                if (!nodeElement.classList.contains('selected')) {
+                    if (!e.shiftKey) document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+                    nodeElement.classList.add('selected');
+                }
+
+                initialPositions = Array.from(document.querySelectorAll('.node.selected')).map(el => {
+                    let nId = el.id.replace('node_', '');
+                    let nObj = currentDataGlobal.nodos.find(x => x.id_interno === nId);
+                    return {
+                        element: el, nodo: nObj,
+                        initDOMX: parseFloat(el.style.left) || 0,
+                        initDOMY: parseFloat(el.style.top) || 0,
+                        initWorldX: nObj ? nObj.posicion.x : 0,
+                        initWorldY: nObj ? nObj.posicion.y : 0
+                    };
+                });
+                document.querySelectorAll('.node.selected').forEach(el => el.style.zIndex = 30);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDraggingNode) return;
+                lastDx = (e.clientX - startX) / zoomScale;
+                lastDy = (e.clientY - startY) / zoomScale;
+                
+                initialPositions.forEach(item => {
+                    item.element.style.left = (item.initDOMX + lastDx) + 'px';
+                    item.element.style.top = (item.initDOMY + lastDy) + 'px';
+                });
+
+                recalcularCablesYDibujar();
+                ajustarFrames();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDraggingNode) {
+                    isDraggingNode = false;
+                    document.querySelectorAll('.node.selected').forEach(el => el.style.zIndex = el.getAttribute('data-z'));
+                    guardarPosiciones(); 
+                    adaptarLienzo(); 
+                }
+            });
+        }
+
+        function hacerMarcoArrastrable(marcoElement, marcoData) {
+            marcoElement.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
+                if (e.shiftKey) {
+                    marcoElement.classList.toggle('selected');
+                } else {
+                    if (!marcoElement.classList.contains('selected')) {
+                        document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+                        marcoElement.classList.add('selected');
+                    }
+                }
+            });
+
+            const header = marcoElement.querySelector('.node-header');
+            if (!header) return;
+
+            let isDraggingFrame = false;
+            let initialPositions = []; 
+            let lastDx = 0, lastDy = 0;
+            let startX, startY;
+
+            header.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return; 
+                e.stopPropagation();
+                isDraggingFrame = true;
+                startX = e.clientX; startY = e.clientY;
+                lastDx = 0; lastDy = 0;
+
+                if (!marcoElement.classList.contains('selected')) {
+                    if (!e.shiftKey) document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+                    marcoElement.classList.add('selected');
+                }
+
+                initialPositions = [];
+                document.querySelectorAll('.node.selected').forEach(el => {
+                    let nId = el.id.replace('node_', '');
+                    let nObj = currentDataGlobal.nodos.find(x => x.id_interno === nId);
+                    initialPositions.push({ element: el, nodo: nObj, initDOMX: parseFloat(el.style.left)||0, initDOMY: parseFloat(el.style.top)||0, initWorldX: nObj ? nObj.posicion.x : 0, initWorldY: nObj ? nObj.posicion.y : 0 });
+                });
+                
+                getTodosLosHijos(currentDataGlobal, marcoData.id_interno).forEach(h => {
+                    const hDiv = document.getElementById('node_' + h.id_interno);
+                    if (hDiv && !initialPositions.find(p => p.element === hDiv)) {
+                        let nObj = currentDataGlobal.nodos.find(x => x.id_interno === h.id_interno);
+                        initialPositions.push({ element: hDiv, nodo: nObj, initDOMX: parseFloat(hDiv.style.left)||0, initDOMY: parseFloat(hDiv.style.top)||0, initWorldX: nObj ? nObj.posicion.x : 0, initWorldY: nObj ? nObj.posicion.y : 0 });
+                    }
+                });
+                
+                document.querySelectorAll('.node.selected').forEach(el => el.style.zIndex = 30);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDraggingFrame) return;
+                lastDx = (e.clientX - startX) / zoomScale;
+                lastDy = (e.clientY - startY) / zoomScale;
+                initialPositions.forEach(item => {
+                    item.element.style.left = (item.initDOMX + lastDx) + 'px';
+                    item.element.style.top = (item.initDOMY + lastDy) + 'px';
+                });
+                recalcularCablesYDibujar();
+                ajustarFrames(); 
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDraggingFrame) { 
+                    isDraggingFrame = false; 
+                    document.querySelectorAll('.node.selected').forEach(el => el.style.zIndex = el.getAttribute('data-z'));
+                    guardarPosiciones(); 
+                    adaptarLienzo(); 
+                }
+            });
+        }
+
+        let isConnecting = false, cStartNode = null, cStartPort = null, cStartType = null, tempLine = null;
+        
+        document.body.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('socket-dot') && e.button === 0) {
+                e.stopPropagation(); 
+                isConnecting = true;
+                cStartNode = e.target.getAttribute('data-node');
+                cStartPort = e.target.getAttribute('data-port');
+                cStartType = e.target.getAttribute('data-type');
+                
+                tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                tempLine.setAttribute('stroke', 'rgba(255,255,255,0.8)'); tempLine.setAttribute('stroke-width', '3');
+                tempLine.setAttribute('fill', 'none'); tempLine.setAttribute('stroke-dasharray', '5,5');
+                document.getElementById('cables-svg').appendChild(tempLine);
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isConnecting && tempLine) {
+                const sRect = document.getElementById(`socket_${cStartType}_${cStartNode}_${cStartPort}`).getBoundingClientRect();
+                const cRect = canvasEl.getBoundingClientRect();
+                const sX = (sRect.left - cRect.left)/zoomScale + (sRect.width/2)/zoomScale;
+                const sY = (sRect.top - cRect.top)/zoomScale + (sRect.height/2)/zoomScale;
+                const eX = (e.clientX - cRect.left)/zoomScale;
+                const eY = (e.clientY - cRect.top)/zoomScale;
+                const dx = Math.abs(eX - sX) * 0.5;
+                tempLine.setAttribute('d', `M ${sX} ${sY} C ${sX+dx} ${sY}, ${eX-dx} ${eY}, ${eX} ${eY}`);
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (isConnecting) {
+                isConnecting = false;
+                if (tempLine) tempLine.remove();
+                if (e.target.classList.contains('socket-dot')) {
+                    let eNode = e.target.getAttribute('data-node'), ePort = e.target.getAttribute('data-port'), eType = e.target.getAttribute('data-type');
+                    if (cStartNode !== eNode && cStartType !== eType) {
+                        let fromN = cStartType === 'out' ? cStartNode : eNode; let fromP = cStartType === 'out' ? cStartPort : ePort;
+                        let toN = cStartType === 'in' ? cStartNode : eNode; let toP = cStartType === 'in' ? cStartPort : ePort;
+                        
+                        guardarPosiciones();
+                        currentDataGlobal.cables = currentDataGlobal.cables.filter(c => !(c.hacia_nodo === toN && c.hacia_puerto === toP));
+                        currentDataGlobal.cables.push({ desde_nodo: fromN, desde_puerto: fromP, hacia_nodo: toN, hacia_puerto: toP });
+                        renderEngine(currentDataGlobal, false);
+                    }
+                }
+            }
+        });
+
+        const ctxMenu = document.getElementById('context-menu');
+        let ctxTarget = null;
+        
+        window.addEventListener('click', () => ctxMenu.style.display = 'none');
+        window.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            ctxTarget = e.target;
+            
+            let isSocket = ctxTarget.classList.contains('socket-dot');
+            let isFrame = ctxTarget.closest('.node-frame') !== null;
+            let isNode = ctxTarget.closest('.node') !== null && !isFrame;
+
+            document.getElementById('ctx-desconectar').style.display = isSocket ? 'flex' : 'none';
+            document.getElementById('ctx-restaurar').style.display = isNode ? 'flex' : 'none';
+            document.getElementById('ctx-asignar-marco').style.display = isFrame ? 'flex' : 'none';
+            document.getElementById('ctx-quitar-marco').style.display = (isNode || isFrame) ? 'flex' : 'none';
+
+            ctxMenu.style.left = e.clientX + 'px';
+            ctxMenu.style.top = e.clientY + 'px';
+            ctxMenu.style.display = 'block';
+        });
+
+        document.getElementById('ctx-restaurar').addEventListener('click', () => {
+            if (!currentDataGlobal || !ctxTarget) return;
+            const nEl = ctxTarget.closest('.node');
+            if (nEl) {
+                const nId = nEl.id.replace('node_', '');
+                const nodo = currentDataGlobal.nodos.find(n => n.id_interno === nId);
+                if(nodo) {
+                    guardarPosiciones();
+                    nodo.puertos_entrada.forEach(p => p.oculto = false);
+                    nodo.puertos_salida.forEach(p => p.oculto = false);
+                    renderEngine(currentDataGlobal, false);
+                }
+            }
+        });
+
+        document.getElementById('ctx-quitar-marco').addEventListener('click', () => {
+            let selected = Array.from(document.querySelectorAll('.node.selected')).map(el => el.id.replace('node_', ''));
+            if(selected.length === 0 && ctxTarget.closest('.node')) selected.push(ctxTarget.closest('.node').id.replace('node_', ''));
+            guardarPosiciones();
+            selected.forEach(id => {
+                let n = currentDataGlobal.nodos.find(x => x.id_interno === id);
+                if(n) n.padre = null;
+            });
+            renderEngine(currentDataGlobal, false);
+        });
+
+        document.getElementById('ctx-asignar-marco').addEventListener('click', () => {
+            let frameEl = ctxTarget.closest('.node-frame');
+            if (!frameEl) return alert("Haz clic derecho SOBRE el marco destino.");
+            let frameId = frameEl.id.replace('node_', '');
+            let selected = Array.from(document.querySelectorAll('.node.selected:not(.node-frame)')).map(el => el.id.replace('node_', ''));
+            if(selected.length === 0) return alert("Selecciona primero los nodos celestes que deseas añadir, luego clic derecho en el marco.");
+            guardarPosiciones();
+            selected.forEach(id => {
+                let n = currentDataGlobal.nodos.find(x => x.id_interno === id);
+                if(n) n.padre = frameId;
+            });
+            renderEngine(currentDataGlobal, false);
+        });
+
+        document.getElementById('ctx-eliminar').addEventListener('click', () => {
+            if (!currentDataGlobal) return;
+            guardarPosiciones();
+            const selIds = Array.from(document.querySelectorAll('.node.selected')).map(el => el.id.replace('node_', ''));
+            if (selIds.length > 0) {
+                currentDataGlobal.nodos = currentDataGlobal.nodos.filter(n => !selIds.includes(n.id_interno));
+                currentDataGlobal.cables = currentDataGlobal.cables.filter(c => !selIds.includes(c.desde_nodo) && !selIds.includes(c.hacia_nodo));
+            } else if (ctxTarget.closest('.node')) {
+                const id = ctxTarget.closest('.node').id.replace('node_', '');
+                currentDataGlobal.nodos = currentDataGlobal.nodos.filter(n => n.id_interno !== id);
+                currentDataGlobal.cables = currentDataGlobal.cables.filter(c => c.desde_nodo !== id && c.hacia_nodo !== id);
+            }
+            renderEngine(currentDataGlobal, false);
+        });
+
+        document.getElementById('ctx-renombrar').addEventListener('click', () => {
+            if (!currentDataGlobal) return;
+            const nEl = ctxTarget.closest('.node');
+            if (nEl) {
+                const nodo = currentDataGlobal.nodos.find(n => n.id_interno === nEl.id.replace('node_', ''));
+                if (nodo) {
+                    const nuevo = prompt("Nuevo nombre:", nodo.etiqueta.replace(/\.\d+$/, ''));
+                    if (nuevo) { guardarPosiciones(); nodo.etiqueta = nuevo; renderEngine(currentDataGlobal, false); }
+                }
+            }
+        });
+
+        document.getElementById('ctx-crear-marco').addEventListener('click', () => {
+            if (!currentDataGlobal) return;
+            guardarPosiciones();
+            const selIds = Array.from(document.querySelectorAll('.node.selected')).map(el => el.id.replace('node_', ''));
+            if (selIds.length === 0) return alert("Selecciona nodos con Click Izquierdo + Arrastrar antes de crear un marco.");
+            const newFrameId = "Frame_" + Date.now();
+            currentDataGlobal.nodos.push({
+                id_interno: newFrameId, tipo: "NodeFrame", etiqueta: "Nuevo Marco",
+                posicion: { x: 0, y: 0 }, dimensiones: { ancho: 200, alto: 200 },
+                es_marco: true, color_fondo: null, puertos_entrada: [], puertos_salida: []
+            });
+            currentDataGlobal.nodos.forEach(n => { if (selIds.includes(n.id_interno)) n.padre = newFrameId; });
+            renderEngine(currentDataGlobal, false);
+        });
+
+        document.getElementById('ctx-desconectar').addEventListener('click', () => {
+            if (!currentDataGlobal || !ctxTarget.classList.contains('socket-dot')) return;
+            guardarPosiciones();
+            let nId = ctxTarget.getAttribute('data-node'), pName = ctxTarget.getAttribute('data-port'), sType = ctxTarget.getAttribute('data-type');
+            currentDataGlobal.cables = currentDataGlobal.cables.filter(c => {
+                if (sType === 'in' && c.hacia_nodo === nId && c.hacia_puerto === pName) return false;
+                if (sType === 'out' && c.desde_nodo === nId && c.desde_puerto === pName) return false;
+                return true;
+            });
+            renderEngine(currentDataGlobal, false);
+        });
+
+        function borrarPuerto(nodeId, portName, portType) {
+            guardarPosiciones();
+            let nodo = currentDataGlobal.nodos.find(n => n.id_interno === nodeId);
+            if(nodo) {
+                let ports = portType === 'in' ? nodo.puertos_entrada : nodo.puertos_salida;
+                let p = ports.find(x => x.nombre === portName);
+                if(p) p.oculto = true;
+            }
+            renderEngine(currentDataGlobal, false); 
+        }
+
+        function recalcularCablesYDibujar() {
+            if (!currentDataGlobal) return;
+            socketsPositions = {}; 
+            const containerRect = canvasEl.getBoundingClientRect();
+            document.querySelectorAll('.socket-dot').forEach(dot => {
+                const rect = dot.getBoundingClientRect();
+                socketsPositions[dot.id] = {
+                    x: (rect.left - containerRect.left) / zoomScale + (rect.width / 2),
+                    y: (rect.top - containerRect.top) / zoomScale + (rect.height / 2),
+                    color: dot.style.backgroundColor,
+                    isDashed: dot.getAttribute('data-dashed') === 'true'
+                };
+            });
+            drawCables(currentDataGlobal.cables);
+        }
+
+        function ajustarFrames() {
+            if (!currentDataGlobal) return;
+            let frames = currentDataGlobal.nodos.filter(n => n.es_marco);
+            frames.sort((a, b) => {
+                let dA = 0, pA = a.padre; while(pA) { dA++; pA = currentDataGlobal.nodos.find(n => n.id_interno === pA)?.padre; }
+                let dB = 0, pB = b.padre; while(pB) { dB++; pB = currentDataGlobal.nodos.find(n => n.id_interno === pB)?.padre; }
+                return dB - dA;
+            });
+
+            frames.forEach(marco => {
+                const hijos = getTodosLosHijos(currentDataGlobal, marco.id_interno);
+                if (hijos.length > 0) {
+                    let minL = Infinity, maxR = -Infinity, minT = Infinity, maxB = -Infinity;
+                    hijos.forEach(h => {
+                        const hDiv = document.getElementById('node_' + h.id_interno);
+                        if (hDiv) {
+                            const l = parseFloat(hDiv.style.left), t = parseFloat(hDiv.style.top);
+                            const w = hDiv.offsetWidth || 180, alt = hDiv.offsetHeight || 50;
+                            minL = Math.min(minL, l); maxR = Math.max(maxR, l + w);
+                            minT = Math.min(minT, t); maxB = Math.max(maxB, t + alt);
+                        }
+                    });
+                    const mDiv = document.getElementById('node_' + marco.id_interno);
+                    if (mDiv && minL !== Infinity) {
+                        mDiv.style.left = (minL - 25) + 'px'; mDiv.style.top = (minT - 45) + 'px';
+                        mDiv.style.width = (maxR - minL + 50) + 'px'; mDiv.style.height = (maxB - minT + 70) + 'px';
+                    }
+                }
+            });
+        }
+
+        function toggleBgPanel() { document.getElementById('bg-panel').classList.toggle('open'); }
+
+        function updateStyles() {
+            let nbw = document.getElementById('node-bw').value;
+            let nbs = document.getElementById('node-bs').value;
+            let fbw = document.getElementById('frame-bw').value;
+            let fbs = document.getElementById('frame-bs').value;
+            
+            let styleTag = document.getElementById('dynamic-custom-styles');
+            if(!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'dynamic-custom-styles';
+                document.head.appendChild(styleTag);
+            }
+            styleTag.innerHTML = `
+                .node { border-width: ${nbw}px !important; border-style: ${nbs} !important; }
+                .node.selected { box-shadow: 0 0 0 ${Math.max(2, nbw*2)}px rgba(33, 150, 243, 0.8), 0 8px 30px rgba(33, 150, 243, 0.3) !important; }
+                .node-frame { border-width: ${fbw}px !important; border-style: ${fbs} !important; }
+            `;
+            recalcularCablesYDibujar();
+        }
+
+        function updateBackground() {
+            const type = document.getElementById('bg-type').value;
+            const c1 = document.getElementById('bg-col1').value;
+            const c2 = document.getElementById('bg-col2').value;
+            const ang = document.getElementById('bg-angle').value; 
+            const dc = document.getElementById('dot-col').value;
+            const ds = parseFloat(document.getElementById('dot-size').value);
+            const dsp = parseFloat(document.getElementById('dot-space').value);
+
+            document.getElementById('row-bg-col2').style.display = (type === 'gradient') ? 'flex' : 'none';
+            document.getElementById('row-bg-angle').style.display = (type === 'gradient') ? 'flex' : 'none';
+
+            const svgBg = document.getElementById('bg-svg-layer');
+            if(!svgBg) return;
+
+            let defs = `<pattern id="dotPattern" x="0" y="0" width="${dsp}" height="${dsp}" patternUnits="userSpaceOnUse"><circle cx="${ds}" cy="${ds}" r="${ds}" fill="${dc}" /></pattern>`;
+            if (type === 'gradient') {
+                defs += `<linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate(${ang}, 0.5, 0.5)">
+                            <stop offset="0%" stop-color="${c1}" /><stop offset="100%" stop-color="${c2}" />
+                         </linearGradient>`;
+            }
+
+            svgBg.innerHTML = `
+                <defs>${defs}</defs>
+                <rect width="100%" height="100%" fill="${type === 'gradient' ? 'url(#bgGrad)' : c1}" />
+                <rect width="100%" height="100%" fill="url(#dotPattern)" />
+            `;
+        }
+
+        function exportarImagen(transparente = false) {
+            const btnOriginal = document.getElementById('btnExportarMain');
+            const btnTransp = document.getElementById('btnExportarTransp');
+            
+            if(transparente && btnTransp) {
+                btnTransp.innerHTML = '⏳ Exportando...';
+                btnTransp.style.background = "rgba(0, 214, 163, 0.2)";
+            } else if(!transparente && btnOriginal) {
+                btnOriginal.querySelector('#export-text').innerText = "⏳ Exportando...";
+                btnOriginal.style.background = "rgba(100, 181, 246, 0.9)";
+            }
+            
+            document.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected')); 
+            const canvasContenedor = document.getElementById('canvas-container');
+            const transformOriginal = canvasContenedor.style.transform;
+            canvasContenedor.style.transform = 'none';
+
+            const bgLayer = document.getElementById('bg-svg-layer');
+            const originalBgDisplay = bgLayer.style.display;
+            
+            // LA MAGIA: Apaga el fondo antes de la captura si es PNG Transparente
+            if (transparente) {
+                bgLayer.style.display = 'none'; 
+            }
+
+            html2canvas(canvasContenedor, { backgroundColor: null, scale: 2, logging: false }).then(canvas => {
+                canvasContenedor.style.transform = transformOriginal;
+                if (transparente) bgLayer.style.display = originalBgDisplay;
+                
+                const enlaceDescarga = document.createElement('a');
+                let d = new Date();
+                let timeStr = `${d.getHours()}${d.getMinutes()}${d.getSeconds()}`;
+                let baseName = (currentDataGlobal && currentDataGlobal.proyecto) ? currentDataGlobal.proyecto : 'NodeGenerator';
+                let sufijo = transparente ? '_Alpha' : '';
+                enlaceDescarga.download = `${baseName}${sufijo}_${timeStr}.png`;
+                
+                enlaceDescarga.href = canvas.toDataURL('image/png');
+                enlaceDescarga.click();
+                
+                if(transparente && btnTransp) {
+                    btnTransp.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> PNG Transparente';
+                    btnTransp.style.background = "rgba(255, 255, 255, 0.05)";
+                } else if(!transparente && btnOriginal) {
+                    btnOriginal.querySelector('#export-text').innerText = "Exportar PNG HD";
+                    btnOriginal.style.background = "rgba(33, 150, 243, 0.85)";
+                }
+            }).catch(err => {
+                console.error("Error al generar la imagen:", err);
+                canvasContenedor.style.transform = transformOriginal;
+                if (transparente) bgLayer.style.display = originalBgDisplay;
+                
+                if(transparente && btnTransp) {
+                    btnTransp.innerHTML = '❌ Error';
+                    btnTransp.style.background = "#ff6b6b";
+                    setTimeout(() => { 
+                        btnTransp.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> PNG Transparente';
+                        btnTransp.style.background = "rgba(255, 255, 255, 0.05)";
+                    }, 3000);
+                } else if(!transparente && btnOriginal) {
+                    btnOriginal.querySelector('#export-text').innerText = "❌ Error";
+                    btnOriginal.style.background = "#ff6b6b";
+                    setTimeout(() => { 
+                        btnOriginal.querySelector('#export-text').innerText = "Exportar PNG HD"; 
+                        btnOriginal.style.background = "rgba(33, 150, 243, 0.85)"; 
+                    }, 3000);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
