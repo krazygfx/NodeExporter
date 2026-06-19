@@ -1,7 +1,7 @@
 bl_info = {
     "name": "NodeExporter",
     "author": "KrazyGFX",
-    "version": (1, 0),
+    "version": (1, 0, 2),
     "blender": (4, 2, 0),
     "location": "Node Editor > N-Panel > NodeExporter",
     "description": "Export Geometry and Shader Nodes to JSON and auto-run the HTML viewer",
@@ -12,7 +12,6 @@ import bpy
 import json
 import os
 import webbrowser
-import shutil
 
 def get_all_trees(self, context):
     items = []
@@ -32,7 +31,7 @@ class KRAZY_PG_Settings(bpy.types.PropertyGroup):
     export_path: bpy.props.StringProperty(
         name="Export directory",
         description="Destination Folder to save capture",
-        default="C:\\NodeExporter",
+        default="//",
         subtype='DIR_PATH'
     )
     selected_tree: bpy.props.EnumProperty(
@@ -72,7 +71,7 @@ class KRAZY_OT_ExportNodes(bpy.types.Operator):
         if not os.path.exists(carpeta_destino):
             try: os.makedirs(carpeta_destino)
             except: 
-                self.report({'ERROR'}, "Invalid export directory.")
+                self.report({'ERROR'}, "Invalid export directory. Make sure to save your .blend file first.")
                 return {'CANCELLED'}
 
         datos_exportados = {"proyecto": proyecto_nombre, "nodos": [], "cables": []}
@@ -160,19 +159,26 @@ class KRAZY_OT_ExportNodes(bpy.types.Operator):
         addon_dir = os.path.dirname(__file__)
         html_origen = os.path.join(addon_dir, "visor.html")
         
-        ruta_html_destino = os.path.join(carpeta_destino, "NodeExporter_Viewer.html")
-        ruta_js = os.path.join(carpeta_destino, "data_export.js")
+        ruta_html_destino = os.path.join(carpeta_destino, f"NodeExporter_{safe_proyecto}.html")
         ruta_json = os.path.join(carpeta_destino, f"{blend_name}_{safe_proyecto}.json")
 
+        # Guardar JSON de respaldo
         with open(ruta_json, 'w', encoding='utf-8') as archivo:
             json.dump(datos_exportados, archivo, indent=4, ensure_ascii=False)
 
         json_string = json.dumps(datos_exportados, ensure_ascii=False)
-        with open(ruta_js, 'w', encoding='utf-8') as js_file:
-            js_file.write(f"const INJECTED_DATA = {json_string};")
 
+        # Inyectar datos directamente en el HTML
         if os.path.exists(html_origen):
-            shutil.copy(html_origen, ruta_html_destino)
+            with open(html_origen, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            
+            script_inyeccion = f"<script>\nconst INJECTED_DATA = {json_string};\n</script>\n</head>"
+            html_content = html_content.replace("</head>", script_inyeccion)
+            
+            with open(ruta_html_destino, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                
             webbrowser.open('file://' + ruta_html_destino.replace('\\', '/'))
             self.report({'INFO'}, "Exported and Viewer Opened!")
         else:
